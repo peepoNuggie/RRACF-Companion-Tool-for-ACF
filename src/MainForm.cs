@@ -10,7 +10,8 @@ namespace Rracf
     internal class MainForm : Form
     {
         private TextBox _modBox, _paksBox, _outBox, _displayBox, _descBox, _logBox, _baseBox;
-        private ComboBox _camoCombo, _slotCombo;
+        private ComboBox _slotCombo;
+        private Panel _camoPanel;
         private Label _baseHint;
         private CheckBox _openWhenDone;
         private Button _analyseButton, _buildButton, _rebuildMapButton;
@@ -33,10 +34,10 @@ namespace Rracf
             _settings = Settings.Load(AppFiles.ResolveDataFile(_appFolder, "rracf-settings.txt"));
             _tools = Tools.Discover(_appFolder);
 
-            Text = "RRACF " + "Version 0.1.0" + " - Replacer to ACF Slot Converter";
+            Text = "RRACF " + AppInfo.Version + " - Replacer to ACF Slot Converter";
             Font = new Font("Segoe UI", 9f);
-            ClientSize = new Size(760, 650);
-            MinimumSize = new Size(700, 590);
+            ClientSize = new Size(760, 700);
+            MinimumSize = new Size(700, 640);
             StartPosition = FormStartPosition.CenterScreen;
 
             BuildLayout();
@@ -118,17 +119,23 @@ namespace Rracf
             Controls.Add(_statusLabel);
             y += 44;
 
+            // A list of radio buttons rather than a dropdown, so every camo the mod touches is visible
+            // at once. Fixed height with a scrollbar keeps everything below it in place; most mods
+            // offer one or two.
             AddLabel("Replaces", y);
-            _camoCombo = new ComboBox();
-            _camoCombo.Location = new Point(FieldX, y);
-            _camoCombo.Size = new Size(FieldW + 100, 23);
-            _camoCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            _camoCombo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _camoPanel = new Panel();
+            _camoPanel.Location = new Point(FieldX, y);
+            _camoPanel.Size = new Size(FieldW + 100, 68);
+            _camoPanel.AutoScroll = true;
+            _camoPanel.BorderStyle = BorderStyle.FixedSingle;
+            _camoPanel.BackColor = Color.White;
+            _camoPanel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(_camoPanel);
+            ShowCamoPlaceholder("press \"1. Analyse mod\" and this fills in by itself");
+            y += 76;
+
             // Base camo is deliberately never auto-filled: it is a concealment value, not a camo ID,
             // so nothing about the detected camo is a sensible guess for it.
-            Controls.Add(_camoCombo);
-            y += RowH;
-
             AddLabel("Base camo", y);
             _baseBox = new TextBox();
             _baseBox.Location = new Point(FieldX, y);
@@ -289,6 +296,46 @@ namespace Rracf
                 : "-> " + stem + "\\" + stem + "_P.pak / .ucas / .utoc";
         }
 
+        private void ShowCamoPlaceholder(string text)
+        {
+            _camoPanel.Controls.Clear();
+            var l = new Label();
+            l.Text = text;
+            l.ForeColor = Color.DimGray;
+            l.Location = new Point(6, 6);
+            l.AutoSize = true;
+            _camoPanel.Controls.Add(l);
+        }
+
+        /// <summary>One radio button per camo the mod touches; the best guess starts selected.</summary>
+        private void SetCamoChoices(List<CamoChoice> choices)
+        {
+            _camoPanel.Controls.Clear();
+            int top = 5;
+            foreach (CamoChoice c in choices)
+            {
+                var rb = new RadioButton();
+                rb.Text = c.ToString();
+                rb.Tag = c;
+                rb.Location = new Point(6, top);
+                rb.AutoSize = true;
+                rb.Checked = _camoPanel.Controls.Count == 0;   // the first is the best guess
+                _camoPanel.Controls.Add(rb);
+                top += 22;
+            }
+            if (choices.Count == 0) ShowCamoPlaceholder("nothing detected");
+        }
+
+        private CamoChoice SelectedCamo()
+        {
+            foreach (Control ctl in _camoPanel.Controls)
+            {
+                var rb = ctl as RadioButton;
+                if (rb != null && rb.Checked) return rb.Tag as CamoChoice;
+            }
+            return null;
+        }
+
         private int SelectedSlot()
         {
             int i = _slotCombo == null ? 0 : _slotCombo.SelectedIndex;
@@ -429,9 +476,7 @@ namespace Rracf
                 string suggested = Pipeline.SuggestName(analysis.ChosenUtoc);
                 BeginInvoke(new Action(delegate
                 {
-                    _camoCombo.Items.Clear();
-                    foreach (CamoChoice c in analysis.Choices) _camoCombo.Items.Add(c);
-                    if (_camoCombo.Items.Count > 0) _camoCombo.SelectedIndex = 0;
+                    SetCamoChoices(analysis.Choices);
                     if (_displayBox.Text.Length == 0) _displayBox.Text = suggested;
                     UpdatePreview();
                 }));
@@ -456,7 +501,7 @@ namespace Rracf
 
         private void OnBuild(object sender, EventArgs e)
         {
-            var choice = _camoCombo.SelectedItem as CamoChoice;
+            CamoChoice choice = SelectedCamo();
             if (choice == null)
             {
                 ShowError("Press \"Analyse mod\" first so the tool knows which camouflage this mod replaces.");

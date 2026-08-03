@@ -8,6 +8,7 @@ namespace Rracf
 {
     internal static class AppInfo
     {
+        /// <summary>The single place the version is written. Title bar, log and --version all read it.</summary>
         public const string Version = "1.0";
     }
 
