@@ -126,6 +126,7 @@ namespace Rracf
             o.SourceCamoId = chosen.CamoId;
             o.TemplateFromMod = chosen.TemplateFromMod;
             o.TemplateContainer = chosen.TemplateContainer;
+            o.DefinitionOnlyContainers = analysis.DefinitionOnlyContainers;
             o.BaseCamoId = opts.ContainsKey("base") ? int.Parse(opts["base"]) : 0;
             o.ModName = Value(opts, "name", Pipeline.SuggestName(analysis.ChosenUtoc));
             o.DisplayName = Value(opts, "display", "");

@@ -18,6 +18,7 @@ namespace Rracf
 
         private Tools _tools;
         private List<CamoEntry> _camoMap;
+        private Analysis _analysis;
         private readonly Settings _settings;
         private readonly string _appFolder;
         private bool _busy;
@@ -402,6 +403,8 @@ namespace Rracf
                 try { analysis = Pipeline.Analyze(_tools, modPath, map, scratch, Log); }
                 finally { try { Io.DeleteDirectory(scratch); } catch (Exception) { } }
 
+                _analysis = analysis;
+
                 foreach (string f in analysis.UnmatchedFolders)
                     Log("Note: folder \"" + f + "\" does not match any vanilla camouflage - ignoring it.");
 
@@ -450,6 +453,7 @@ namespace Rracf
             options.SourceCamoId = choice.CamoId;
             options.TemplateFromMod = choice.TemplateFromMod;
             options.TemplateContainer = choice.TemplateContainer;
+            if (_analysis != null) options.DefinitionOnlyContainers = _analysis.DefinitionOnlyContainers;
             // BaseCamo is a camouflage index, not a camo ID: a signed byte where Naked is 0, Olive Drab
             // 10, Tiger Stripe 30 and Gold -100. Negatives are legal, so blank simply means zero.
             int baseCamo = 0;

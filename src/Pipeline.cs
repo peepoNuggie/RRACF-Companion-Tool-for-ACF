@@ -56,6 +56,12 @@ namespace Rracf
         public bool BaseModMissing;
         /// <summary>Plain-English explanation, shown to the user when an add-on is detected.</summary>
         public string AddOnMessage = "";
+
+        /// <summary>
+        /// Containers holding a camo definition and no art. None of these are shipped: the ACF slot
+        /// takes over that job, so copying them would hijack their vanilla camo as well.
+        /// </summary>
+        public List<string> DefinitionOnlyContainers = new List<string>();
     }
 
     internal class BuildOptions
@@ -78,6 +84,12 @@ namespace Rracf
         /// <summary>The .utoc holding that asset. It is deliberately not shipped: keeping it would leave
         /// the mod overriding the vanilla camo as well as filling the slot.</summary>
         public string TemplateContainer = "";
+        /// <summary>
+        /// Containers that carry only a camo definition. They are never shipped: each one replaces a
+        /// vanilla camo, and the ACF slot now does that job. Without this, dropping both a base mod
+        /// and its add-on into Input fills the slot AND leaves the base mod's camo hijacked.
+        /// </summary>
+        public List<string> DefinitionOnlyContainers = new List<string>();
         public string ModName = "";
         public string DisplayName = "";
         public string Description = "";
@@ -241,6 +253,7 @@ namespace Rracf
                 return a.CamoId.CompareTo(b.CamoId);
             });
 
+            analysis.DefinitionOnlyContainers = addOnContainers;
             DescribeAddOn(analysis, addOnContainers, artContainers);
 
             if (analysis.Choices.Count == 0)
@@ -518,7 +531,7 @@ namespace Rracf
                 // 8. The replacer supplies the actual art, so it has to travel with the slot files.
                 log("Copying the replacer mod's own files...");
                 result.CopiedReplacerFiles = CopyReplacerFiles(containers, modFolder,
-                    o.TemplateFromMod ? o.TemplateContainer : "", log);
+                    o.TemplateFromMod ? o.TemplateContainer : "", o.DefinitionOnlyContainers, log);
 
                 log("Done.");
                 return result;
@@ -638,7 +651,8 @@ namespace Rracf
 
         /// <summary>Copies each container's .utoc/.ucas/.pak/.sig set next to the generated slot files.</summary>
         private static List<string> CopyReplacerFiles(List<string> containers, string destFolder,
-                                                      string excludeContainer, Action<string> log)
+                                                      string excludeContainer, List<string> definitionOnly,
+                                                      Action<string> log)
         {
             var copied = new List<string>();
             foreach (string utoc in containers)
@@ -648,6 +662,16 @@ namespace Rracf
                 {
                     log("  skipping " + Path.GetFileName(utoc) +
                         " - that is the mod's camo override, replaced by the ACF slot");
+                    continue;
+                }
+
+                // Any other definition-only pak belongs to a different mod - usually the base mod an
+                // add-on needs. Shipping it would hijack that mod's vanilla camo on top of filling
+                // the slot, which is not what anyone asked for.
+                if (IsDefinitionOnly(utoc, definitionOnly))
+                {
+                    log("  skipping " + Path.GetFileName(utoc) +
+                        " - camo override from another mod, not needed for this slot");
                     continue;
                 }
                 string dir = Path.GetDirectoryName(utoc);
@@ -687,6 +711,17 @@ namespace Rracf
                     return e.ChunkId;
             }
             throw new InvalidOperationException("Could not read the vanilla chunk ID for " + oldName + ".");
+        }
+
+        private static bool IsDefinitionOnly(string container, List<string> definitionOnly)
+        {
+            if (definitionOnly == null) return false;
+            foreach (string d in definitionOnly)
+            {
+                if (string.Equals(Path.GetFullPath(d), Path.GetFullPath(container), StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>A chunk ID is a 16-hex-digit package ID followed by an 8-digit index; only the first half identifies the package.</summary>

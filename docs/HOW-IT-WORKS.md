@@ -40,6 +40,11 @@ Converting this is the easy case: the mod's own `Camouf_2_asset` already referen
 so RRACF renames **that** onto the slot. It also deliberately does **not** ship the mod's override
 pak — keeping it would leave Leaf hijacked as well as filling the slot, which defeats the point.
 
+That applies to *every* definition-only pak in the Input folder, not only the one the template came
+from. Pairing an add-on with its base mod puts two camo definitions in front of RRACF, and shipping
+the base mod's would fill the slot **and** leave its vanilla camo hijacked. Art paks always ship,
+definition-only paks never do, and each exclusion is logged with the reason.
+
 ### 2b. The mod overwrites a vanilla camo's art in place
 
 Zero's Jacket Replacer. It replaces the files under `Camouflage/Tuxedo/` directly; there is no camo
