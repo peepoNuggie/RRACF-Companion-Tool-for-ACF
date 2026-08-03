@@ -45,6 +45,27 @@ from. Pairing an add-on with its base mod puts two camo definitions in front of 
 the base mod's would fill the slot **and** leave its vanilla camo hijacked. Art paks always ship,
 definition-only paks never do, and each exclusion is logged with the reason.
 
+### 2ab. A mod can cover more than one camo
+
+Neither pattern is limited to a single camo, and the two mods that do this were nearly missed.
+
+**Zero's Jacket** (pattern 2b) overwrites the art of *two* vanilla camos — eight packages under
+`camouflage/Tuxedo/` and five under `camouflage/Tuxedo_White/`. So it offers ID 16 or ID 54 as a
+template.
+
+**EVA's suit and jacket** (pattern 2a) ships *two* camo assets of its own, `Camouf_4_asset` and
+`Camouf_46_asset`, redirecting Choco Chip and Rock at the same art folder.
+
+An ACF slot holds one outfit, so RRACF lists every camo it finds and the user picks. A camo asset
+shipped by the mod ranks above one inferred from art folders, since it names its camo outright;
+after that it is the folder the mod ships the most art for, then the most specific camo, then the
+lowest ID. For Zero's Jacket that puts Tuxedo first (eight files against five), matching the
+hand-built reference. They are shown as radio buttons rather than a dropdown so a second option
+cannot be missed.
+
+Converting the mod twice onto different slots gives both. The art pak is shared and each output
+carries its own copy of it, so the two folders are independent.
+
 ### 2b. The mod overwrites a vanilla camo's art in place
 
 Zero's Jacket Replacer. It replaces the files under `Camouflage/Tuxedo/` directly; there is no camo

@@ -34,8 +34,9 @@ Point it at a mod, give it a name, pick a slot. It works out the rest.
 
 ## Using it
 
-Full instructions for mod authors are in **[readme.txt](readme.txt)**, which ships with the
-download. The short version:
+Full instructions are in **[readme.txt](readme.txt)**, which ships with the download. It is written
+for anyone converting a mod — you do not need to be a mod author, or know anything about how any of
+this works. The short version:
 
 1. Put the mod in the `Input` folder
 2. **Analyse mod** — RRACF works out which camo it replaces
@@ -66,6 +67,12 @@ things**:
   `Camouf_<id>_asset` is pulled out of the game and renamed instead.
 
 Both are detected automatically.
+
+**Some mods cover more than one camo**, in either pattern. Zero's Jacket overwrites the art of both
+`Tuxedo` (ID 16) and `Tuxedo_White` (ID 54); EVA's suit ships two camo assets of its own, for Choco
+Chip (ID 4) and Rock (ID 46). RRACF lists every camo it finds and you pick which one becomes the
+slot — one slot holds one outfit. To get both, convert the mod twice onto different slots; the art
+is shared, so each output carries its own copy.
 
 Three things that are not obvious, and cost real debugging:
 
