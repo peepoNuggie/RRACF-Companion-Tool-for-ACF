@@ -334,6 +334,18 @@ namespace Rracf
             MessageBox.Show(this, message, "RRACF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
+        /// <summary>
+        /// Asks a yes/no question from the build thread. Invoke rather than BeginInvoke, because the
+        /// build is waiting on the answer.
+        /// </summary>
+        private bool Confirm(string title, string message)
+        {
+            if (InvokeRequired)
+                return (bool)Invoke(new ConfirmCallback(Confirm), new object[] { title, message });
+            return MessageBox.Show(this, message, "RRACF - " + title,
+                       MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+        }
+
         private List<CamoEntry> EnsureCamoMap(bool forceRebuild)
         {
             string cachePath = Path.Combine(_appFolder, "rracf-camomap.txt");
@@ -452,7 +464,7 @@ namespace Rracf
             {
                 Log("");
                 Log("=== Building slot " + options.Slot + " from camo " + options.SourceCamoId + " ===");
-                BuildResult r = Pipeline.Build(_tools, options, Log);
+                BuildResult r = Pipeline.Build(_tools, options, Log, Confirm);
                 Log("");
                 Log("Created " + r.ModFolder + " containing:");
                 foreach (string p in new[] { r.PakPath, r.UcasPath, r.UtocPath, r.SlotTxtPath })

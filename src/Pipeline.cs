@@ -89,6 +89,9 @@ namespace Rracf
         public List<string> CopiedReplacerFiles = new List<string>();
     }
 
+    /// <summary>Asks the user a yes/no question mid-build. Null (the CLI) means "carry on".</summary>
+    internal delegate bool ConfirmCallback(string title, string message);
+
     internal static class Pipeline
     {
         /// <summary>ACF's additional-uniform slots.</summary>
@@ -296,6 +299,11 @@ namespace Rracf
 
         public static BuildResult Build(Tools tools, BuildOptions o, Action<string> log)
         {
+            return Build(tools, o, log, null);
+        }
+
+        public static BuildResult Build(Tools tools, BuildOptions o, Action<string> log, ConfirmCallback confirm)
+        {
             tools.Validate();
 
             // The in-game name drives every generated name, so the folder and the paks always match.
@@ -385,7 +393,7 @@ namespace Rracf
                 // 3b. The asset is only useful if it still points at some art. A mod that ships a camo
                 //     asset but no art of its own depends on a companion download; without that in the
                 //     Input folder its imports resolve to nothing and the slot comes out empty in game.
-                CheckArtReferences(File.ReadAllBytes(srcUasset), oldName, log);
+                CheckArtReferences(File.ReadAllBytes(srcUasset), oldName, log, confirm);
 
                 // 4. Rename the asset onto the ACF slot.
                 log("Renaming " + oldName + " to " + newName + "...");
@@ -473,31 +481,74 @@ namespace Rracf
         }
 
         /// <summary>
-        /// Fails the build if the camo asset no longer names any camouflage art.
+        /// Checks whether the camo asset still names the art it needs.
         ///
-        /// retoc writes imports it cannot resolve as /Engine/UnknownPackage. A slot built from such an
-        /// asset packs, verifies and installs perfectly happily, then shows up as an empty camo - so
-        /// this is checked rather than left to be discovered in game.
+        /// retoc writes imports it cannot resolve as /Engine/UnknownPackage, discarding the original
+        /// path. A slot built from such an asset packs, verifies and installs perfectly happily, then
+        /// shows up wrong in game - so it is caught here instead.
+        ///
+        /// Nothing resolved at all is a hard stop. A partial miss asks the user, because some mods
+        /// legitimately carry one unresolved import and still match their hand-built equivalents.
         /// </summary>
-        private static void CheckArtReferences(byte[] assetBytes, string assetName, Action<string> log)
+        private static void CheckArtReferences(byte[] assetBytes, string assetName,
+                                               Action<string> log, ConfirmCallback confirm)
         {
             string text = System.Text.Encoding.ASCII.GetString(assetBytes);
-            int artRefs = Regex.Matches(text, "/Body/Camouflage/[A-Za-z0-9_]+/", RegexOptions.IgnoreCase).Count;
-            int unresolved = Regex.Matches(text, "/Engine/UnknownPackage").Count;
 
-            if (artRefs > 0)
+            var parts = new List<string>();
+            foreach (Match m in Regex.Matches(text, "MODEL_PART_TYPE::([A-Za-z]+)"))
             {
-                log("  points at " + artRefs + " camouflage art reference" + (artRefs == 1 ? "" : "s"));
-                if (unresolved > 0)
-                    log("  note: " + unresolved + " import(s) could not be resolved");
-                return;
+                if (!parts.Contains(m.Groups[1].Value)) parts.Add(m.Groups[1].Value);
             }
 
-            throw new InvalidOperationException(
-                assetName + " does not point at any camouflage art, so the slot would be empty in game.\r\n\r\n" +
-                "This usually means the mod ships only a camo asset and gets its art from a separate " +
-                "download - often the base mod on the same Nexus page. Put that download in the Input " +
-                "folder alongside this one and try again.");
+            var artPaths = new List<string>();
+            foreach (Match m in Regex.Matches(text, "/Game/Art[\\x20-\\x7E]{10,}"))
+            {
+                if (!artPaths.Contains(m.Value)) artPaths.Add(m.Value);
+            }
+
+            int unresolved = Regex.Matches(text, "/Engine/UnknownPackage").Count;
+
+            log("  points at " + artPaths.Count + " art reference" + (artPaths.Count == 1 ? "" : "s") +
+                (unresolved > 0 ? ", " + unresolved + " could not be found" : ""));
+
+            if (unresolved == 0) return;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(assetName + " points at files that are not in the Input folder.");
+            sb.AppendLine();
+            if (parts.Count > 0)
+            {
+                sb.AppendLine("It describes these body parts:");
+                sb.AppendLine("    " + string.Join(", ", parts.ToArray()));
+                sb.AppendLine();
+            }
+            if (artPaths.Count > 0)
+            {
+                sb.AppendLine("Art it DID find:");
+                foreach (string p in artPaths) sb.AppendLine("    " + p);
+                sb.AppendLine();
+            }
+            sb.AppendLine(unresolved + " reference" + (unresolved == 1 ? "" : "s") +
+                          " could not be found. Their paths are not recoverable - the game stores them");
+            sb.AppendLine("as hashes, so anything missing simply reads back as /Engine/UnknownPackage.");
+            sb.AppendLine();
+            sb.AppendLine("Missing art almost always lives in another download, usually the base mod on");
+            sb.AppendLine("the same Nexus page. Put that download in the Input folder as well and convert");
+            sb.AppendLine("again.");
+
+            if (artPaths.Count == 0)
+            {
+                sb.AppendLine();
+                sb.Append("Nothing at all resolved, so this slot would show no clothing in game.");
+                throw new InvalidOperationException(sb.ToString());
+            }
+
+            sb.AppendLine();
+            sb.Append("Build it anyway?");
+            log("  WARNING: " + unresolved + " reference(s) point outside the Input folder");
+            if (confirm != null && !confirm("Missing files", sb.ToString()))
+                throw new InvalidOperationException("Cancelled - add the missing mod to the Input folder and try again.");
         }
 
         /// <summary>

@@ -206,15 +206,24 @@ base mod on the same Nexus page. "The Boss' Mantle over Black Camo" is one: a si
 whose only package is `Camouf_9_asset`, and whose imports resolve to nothing on their own.
 
 Converted alone, that produces a slot referencing no art whatsoever. It packs, verifies and installs
-without complaint, and is an empty camo in game. So after extracting the template RRACF counts the
-`/Body/Camouflage/<folder>/` references in it, and refuses the build if there are none, pointing at
-the likely cause. Putting the companion download in the Input folder alongside it fixes the
-resolution — the Mantle then finds 7 art references and builds.
+without complaint, and is an empty camo in game. Putting the companion download in the Input folder
+alongside it fixes the resolution — the Mantle then finds 7 art references and builds.
 
-Note that a nonzero `/Engine/UnknownPackage` count is *not* on its own a failure: several mods that
-match their hand-built references byte for byte still carry one unresolved import, because the
-staged folder holds only `global.utoc` and the mod, not the whole game. What matters is whether any
-camouflage art survived.
+So after extracting the template RRACF reports what it found and what it did not:
+
+- **Nothing resolved** → hard stop. The slot would show no clothing at all.
+- **Some resolved, some missing** → the window asks whether to build anyway, listing the body parts
+  the asset describes and the art paths it *did* find.
+
+The paths of the *missing* references cannot be shown, and that is worth understanding. Zen packages
+store imports as hashes of the object path, not as text. retoc resolves a hash by finding the object
+in a container it has been given; anything it cannot find is written out as `/Engine/UnknownPackage`
+with the original path gone. There is nothing left to print — hence the prompt describes what is
+present and names the likely cause instead.
+
+A nonzero unresolved count is *not* on its own proof of a problem: of eleven mods that convert, three
+carry a single unresolved import and work correctly in game. That is why the partial case asks rather
+than refuses.
 
 ---
 
