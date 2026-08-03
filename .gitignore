@@ -18,3 +18,8 @@ Downloads/
 
 # Scratch folders
 _*/
+
+# Packaged release - the download lives on Nexus
+Release/
+Claude Note.txt
+

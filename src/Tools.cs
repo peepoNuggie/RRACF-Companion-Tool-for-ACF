@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -8,6 +9,67 @@ namespace Rracf
     internal static class AppInfo
     {
         public const string Version = "1.0";
+    }
+
+    /// <summary>
+    /// Finds the bits and pieces RRACF ships with, wherever the user has put them.
+    ///
+    /// The release layout keeps everything in a Resources folder, but people move things around, so
+    /// anything under the program's own folder counts. Input and Output are skipped: they hold the
+    /// user's mods, can be large, and never contain our files.
+    /// </summary>
+    internal static class AppFiles
+    {
+        private static readonly string[] SkipFolders = { "Input", "Output" };
+
+        /// <summary>Every folder under the program, nearest first, excluding Input and Output.</summary>
+        public static List<string> SearchFolders(string appFolder)
+        {
+            var folders = new List<string>();
+            folders.Add(appFolder);
+            try
+            {
+                foreach (string dir in Directory.GetDirectories(appFolder, "*", SearchOption.AllDirectories))
+                {
+                    string rel = dir.Substring(appFolder.Length).TrimStart('\\', '/');
+                    string top = rel.Split('\\', '/')[0];
+                    bool skip = false;
+                    foreach (string s in SkipFolders)
+                    {
+                        if (string.Equals(top, s, StringComparison.OrdinalIgnoreCase)) { skip = true; break; }
+                    }
+                    if (!skip) folders.Add(dir);
+                }
+            }
+            catch (Exception) { }
+            return folders;
+        }
+
+        /// <summary>The first matching file anywhere under the program folder, or "".</summary>
+        public static string Find(string appFolder, string fileName)
+        {
+            foreach (string dir in SearchFolders(appFolder))
+            {
+                string candidate = Path.Combine(dir, fileName);
+                try { if (File.Exists(candidate)) return Path.GetFullPath(candidate); }
+                catch (Exception) { }
+            }
+            return "";
+        }
+
+        /// <summary>
+        /// Where a generated file should live: on top of an existing copy if there is one, otherwise
+        /// in Resources when that folder exists, otherwise beside the program.
+        /// </summary>
+        public static string ResolveDataFile(string appFolder, string fileName)
+        {
+            string existing = Find(appFolder, fileName);
+            if (existing.Length > 0) return existing;
+
+            string resources = Path.Combine(appFolder, "Resources");
+            if (Directory.Exists(resources)) return Path.Combine(resources, fileName);
+            return Path.Combine(appFolder, fileName);
+        }
     }
 
     internal static class Io
@@ -47,7 +109,7 @@ namespace Rracf
             BaseFolder = "";
         }
 
-        /// <summary>Finds retoc/repak next to the program, in retoc\ and repak\ subfolders, or one level up.</summary>
+        /// <summary>Finds retoc/repak anywhere under the program's folder, or one level up.</summary>
         public static Tools Discover(string baseFolder)
         {
             string retoc = FindTool(baseFolder, "retoc.exe");
@@ -59,17 +121,20 @@ namespace Rracf
 
         private static string FindTool(string baseFolder, string exeName)
         {
+            string found = AppFiles.Find(baseFolder, exeName);
+            if (found.Length > 0) return found;
+
+            // Fall back to one level up, which is how a source checkout is usually arranged.
             string stem = Path.GetFileNameWithoutExtension(exeName);
             var candidates = new[]
             {
-                Path.Combine(baseFolder, exeName),
-                Path.Combine(Path.Combine(baseFolder, stem), exeName),
                 Path.Combine(Path.Combine(baseFolder, ".."), exeName),
                 Path.Combine(Path.Combine(Path.Combine(baseFolder, ".."), stem), exeName)
             };
             foreach (string c in candidates)
             {
-                if (File.Exists(c)) return Path.GetFullPath(c);
+                try { if (File.Exists(c)) return Path.GetFullPath(c); }
+                catch (Exception) { }
             }
             return "";
         }

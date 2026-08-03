@@ -56,22 +56,25 @@ namespace Rracf
             }
 
             string appFolder = Path.GetDirectoryName(Application.ExecutablePath);
-            var settings = Settings.Load(Path.Combine(appFolder, "rracf-settings.txt"));
+            var settings = Settings.Load(AppFiles.ResolveDataFile(appFolder, "rracf-settings.txt"));
             Tools tools = Tools.Discover(appFolder);
             if (opts.ContainsKey("retoc") || opts.ContainsKey("repak"))
                 tools = new Tools(Value(opts, "retoc", tools.RetocPath), Value(opts, "repak", tools.RepakPath));
 
             Action<string> log = Console.WriteLine;
 
-            string modInput = Value(opts, "mod", settings.Get("input", Path.Combine(appFolder, "Input")));
-            string paks = Value(opts, "paks", settings.Get("paks", GameFinder.FindPaksFolder()));
-            string output = Value(opts, "out", settings.Get("output", Path.Combine(appFolder, "Output")));
+            // Remembered folders are only honoured if they exist, so a settings file from another
+            // machine cannot send output somewhere meaningless.
+            string modInput = Value(opts, "mod", ExistingOr(settings.Get("input", ""), Path.Combine(appFolder, "Input")));
+            string output = Value(opts, "out", ExistingOr(settings.Get("output", ""), Path.Combine(appFolder, "Output")));
+            string paks = Value(opts, "paks", settings.Get("paks", ""));
+            if (!Directory.Exists(paks)) paks = GameFinder.FindPaksFolder();
 
             // Empty folders do not survive being zipped up, so make sure they exist on first run.
             try { Directory.CreateDirectory(modInput); Directory.CreateDirectory(output); }
             catch (Exception) { }
 
-            string cachePath = Path.Combine(appFolder, "rracf-camomap.txt");
+            string cachePath = AppFiles.ResolveDataFile(appFolder, "rracf-camomap.txt");
             List<CamoEntry> map = opts.ContainsKey("rebuild-map") ? null : CamoMap.Load(cachePath);
             if (map == null)
             {
@@ -140,6 +143,12 @@ namespace Rracf
             foreach (string p in r.CopiedReplacerFiles)
                 Console.WriteLine("  " + Path.GetFileName(p) + "   (from the replacer mod)");
             return 0;
+        }
+
+        private static string ExistingOr(string preferred, string fallback)
+        {
+            if (!string.IsNullOrEmpty(preferred) && Directory.Exists(preferred)) return preferred;
+            return fallback;
         }
 
         private static string Require(Dictionary<string, string> o, string key)

@@ -21,15 +21,19 @@ namespace Rracf
         private Analysis _analysis;
         private readonly Settings _settings;
         private readonly string _appFolder;
+        private readonly string _camoMapPath;
         private bool _busy;
 
         public MainForm()
         {
             _appFolder = Path.GetDirectoryName(Application.ExecutablePath);
-            _settings = Settings.Load(Path.Combine(_appFolder, "rracf-settings.txt"));
+            // These live in Resources in the shipped layout, but are picked up from any folder under
+            // the program - and rewritten wherever they were found, rather than dumped at the root.
+            _camoMapPath = AppFiles.ResolveDataFile(_appFolder, "rracf-camomap.txt");
+            _settings = Settings.Load(AppFiles.ResolveDataFile(_appFolder, "rracf-settings.txt"));
             _tools = Tools.Discover(_appFolder);
 
-            Text = "RRACF " + AppInfo.Version + " - Replacer to ACF Slot Converter";
+            Text = "RRACF " + "Version 0.1.0" + " - Replacer to ACF Slot Converter";
             Font = new Font("Segoe UI", 9f);
             ClientSize = new Size(760, 650);
             MinimumSize = new Size(700, 590);
@@ -205,21 +209,29 @@ namespace Rracf
 
         private void LoadSettingsIntoUi()
         {
-            _modBox.Text = _settings.Get("input", Path.Combine(_appFolder, "Input"));
+            // A remembered folder is only used if it is really there - otherwise a settings file from
+            // another machine would have us create D:\Mod Hub\RRACF\Input on someone else's drive.
+            _modBox.Text = ExistingOr(_settings.Get("input", ""), Path.Combine(_appFolder, "Input"));
+            _outBox.Text = ExistingOr(_settings.Get("output", ""), Path.Combine(_appFolder, "Output"));
             _paksBox.Text = _settings.Get("paks", GameFinder.FindPaksFolder());
-            _outBox.Text = _settings.Get("output", Path.Combine(_appFolder, "Output"));
 
             _openWhenDone.Checked = _settings.Get("openwhendone", "1") != "0";
 
             // Empty folders do not survive being zipped up, so make sure they exist on first run.
             EnsureFolder(_modBox.Text);
             EnsureFolder(_outBox.Text);
-            if (_settings.Get("retoc", "").Length > 0 || _settings.Get("repak", "").Length > 0)
-            {
-                _tools = new Tools(
-                    _settings.Get("retoc", _tools.RetocPath),
-                    _settings.Get("repak", _tools.RepakPath));
-            }
+            // A remembered tool path only wins if it still exists. Otherwise the settings file that
+            // shipped with the download - or one carried over from another machine - would override
+            // a perfectly good auto-detect with a path that is not there.
+            string savedRetoc = _settings.Get("retoc", "");
+            string savedRepak = _settings.Get("repak", "");
+            _tools = new Tools(
+                File.Exists(savedRetoc) ? savedRetoc : _tools.RetocPath,
+                File.Exists(savedRepak) ? savedRepak : _tools.RepakPath);
+            _tools.BaseFolder = _appFolder;
+
+            // Same for the game folder: a path from someone else's machine is worse than detecting.
+            if (!Directory.Exists(_paksBox.Text)) _paksBox.Text = GameFinder.FindPaksFolder();
 
             Log("RRACF " + AppInfo.Version + " - turns a replacer camo mod into an ACF slot mod.");
             Log("retoc: " + (File.Exists(_tools.RetocPath) ? _tools.RetocPath : "NOT FOUND"));
@@ -232,7 +244,7 @@ namespace Rracf
             }
             Log("");
             // Reuse the camo list built on a previous run so the first Analyse is instant.
-            List<CamoEntry> cached = CamoMap.Load(Path.Combine(_appFolder, "rracf-camomap.txt"));
+            List<CamoEntry> cached = CamoMap.Load(_camoMapPath);
             if (cached != null)
             {
                 CamoMap.ApplyEnumNames(cached, GameFinder.FindEnumHeader(_paksBox.Text, _settings.Get("enums", "")),
@@ -247,6 +259,12 @@ namespace Rracf
             UpdateStatus();
         }
 
+        private static string ExistingOr(string preferred, string fallback)
+        {
+            if (!string.IsNullOrEmpty(preferred) && Directory.Exists(preferred)) return preferred;
+            return fallback;
+        }
+
         private static void EnsureFolder(string path)
         {
             try { if (!string.IsNullOrEmpty(path)) Directory.CreateDirectory(path); }
@@ -255,7 +273,7 @@ namespace Rracf
 
         private void UpdateStatus()
         {
-            string cache = Path.Combine(_appFolder, "rracf-camomap.txt");
+            string cache = _camoMapPath;
             _statusLabel.Text = File.Exists(cache)
                 ? "Camo list ready."
                 : "Camo list will be built on first analyse.";
@@ -349,7 +367,7 @@ namespace Rracf
 
         private List<CamoEntry> EnsureCamoMap(bool forceRebuild)
         {
-            string cachePath = Path.Combine(_appFolder, "rracf-camomap.txt");
+            string cachePath = _camoMapPath;
             if (!forceRebuild && _camoMap != null) return _camoMap;
 
             List<CamoEntry> map = forceRebuild ? null : CamoMap.Load(cachePath);
