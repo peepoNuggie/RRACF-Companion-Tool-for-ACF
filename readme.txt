@@ -142,5 +142,8 @@ own licences:
     retoc   by Truman Kilen and Archengius
     repak   by Truman Kilen and spuds
 
+RRACF on Nexus:  https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/236
+ACF on Nexus:    https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/235
+
 Source code: https://github.com/peepoNuggie/RRACF-Companion-Tool-for-ACF
 Downloads are on Nexus Mods only.

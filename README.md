@@ -8,7 +8,7 @@ Point it at a mod, give it a name, pick a slot. It works out the rest.
 
 > ### Downloads are on Nexus, not here
 >
-> **[Download RRACF on Nexus Mods](https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods)**
+> **[Download RRACF on Nexus Mods](https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/236)**
 >
 > This repository holds **source code only**. There are no ready-to-run files here, and GitHub's
 > automatic "Source code (zip)" archives are the project, not the tool.
