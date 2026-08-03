@@ -42,9 +42,12 @@ These look similar but do different jobs:
 - **Replaces** is the vanilla camo whose asset is used as the *template*. It must be the camo the
   mod actually replaces — get it wrong and the slot points at art that nothing supplies, so it
   shows up empty. Analyse fills this in; only change it if the detection picked wrong.
-- **Base camo** is only the `BaseCamo=` line in `ACF_Slot<slot>.txt`, which ACF reads as a
-  gameplay setting. It defaults to the same camo, but it is safe to change and worth experimenting
-  with. Any ID can be typed in, not just the ones in the list.
+- **Base camo** is unrelated to that. It is the `BaseCamo=` line in `ACF_Slot<slot>.txt`, and it is
+  a **camouflage index, not a camo ID** — ACF adds it to the concealment the game calculates, so the
+  slot simply hides you better or worse than bare skin. For scale: Naked is 0, Olive Drab 10, Tiger
+  Stripe 30, Gold −100. Sensible range is −100 to +100, and ACF stores it as a signed byte, so
+  −128..127. Leave the box blank for 0, which is what ACF defaults to. It affects stealth only,
+  never appearance, and the `.txt` is plain text you can edit afterwards.
 
 ## Command line
 
@@ -56,7 +59,7 @@ RRACF.exe [--mod <folder>] [--slot 61|62|63|64] [options]
   --mod <path>      folder holding the replacer mod (or a .utoc); defaults to Input
   --slot <61-64>    ACF slot to fill; omit to just inspect the mod
   --source <id>     override the detected camo used as the template
-  --base <id>       BaseCamo= value in ACF_Slot<slot>.txt; defaults to --source
+  --base <n>        BaseCamo= concealment value, -128..127 (default 0)
   --name <text>     fallback name if --display is not given
   --display <text>  in-game name; drives the folder and file names
   --desc <text>     in-game description

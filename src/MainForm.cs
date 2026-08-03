@@ -119,7 +119,8 @@ namespace Rracf
             _camoCombo.Size = new Size(FieldW + 100, 23);
             _camoCombo.DropDownStyle = ComboBoxStyle.DropDownList;
             _camoCombo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            _camoCombo.SelectedIndexChanged += delegate { SyncBaseCamoToSource(); };
+            // Base camo is deliberately never auto-filled: it is a concealment value, not a camo ID,
+            // so nothing about the detected camo is a sensible guess for it.
             Controls.Add(_camoCombo);
             y += RowH;
 
@@ -130,12 +131,12 @@ namespace Rracf
             _baseBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             Controls.Add(_baseBox);
             _baseHint = new Label();
+            _baseHint.Text = "written as BaseCamo= in the .txt - safe to experiment with";
             _baseHint.Location = new Point(FieldX + 70, y + 3);
             _baseHint.Size = new Size(570, 20);
             _baseHint.ForeColor = Color.DimGray;
             _baseHint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             Controls.Add(_baseHint);
-            _baseBox.TextChanged += delegate { UpdateBaseHint(); };
             y += RowH;
 
             AddLabel("ACF slot", y);
@@ -229,15 +230,13 @@ namespace Rracf
                 Log("*** next to RRACF.exe (" + _appFolder + "), then restart.");
             }
             Log("");
-            // If the camo list was built on a previous run, fill the Base camo box straight away
-            // rather than leaving it empty until the first Analyse.
+            // Reuse the camo list built on a previous run so the first Analyse is instant.
             List<CamoEntry> cached = CamoMap.Load(Path.Combine(_appFolder, "rracf-camomap.txt"));
             if (cached != null)
             {
                 CamoMap.ApplyEnumNames(cached, GameFinder.FindEnumHeader(_paksBox.Text, _settings.Get("enums", "")),
                     delegate(string s) { });
                 _camoMap = cached;
-                UpdateBaseHint();
             }
 
             Log("Step 1: put the replacer mod in");
@@ -269,46 +268,6 @@ namespace Rracf
             _previewLabel.Text = name.Length == 0
                 ? "-> enter a name to see the output"
                 : "-> " + stem + "\\" + stem + "_P.pak / .ucas / .utoc";
-        }
-
-        /// <summary>Names whichever camo ID has been typed into the Base camo box.</summary>
-        private void UpdateBaseHint()
-        {
-            string text = _baseBox.Text.Trim();
-            if (text.Length == 0)
-            {
-                _baseHint.Text = "written as BaseCamo= in the .txt - safe to experiment with";
-                return;
-            }
-            int id;
-            if (!int.TryParse(text, out id))
-            {
-                _baseHint.Text = "that is not a number";
-                return;
-            }
-            string name = DescribeCamo(id);
-            _baseHint.Text = "BaseCamo=" + id + (name.Length > 0 ? "   " + name : "   (not a camo this game ships)");
-        }
-
-        private string DescribeCamo(int id)
-        {
-            if (_camoMap != null)
-            {
-                foreach (CamoEntry c in _camoMap)
-                {
-                    if (c.Id != id) continue;
-                    return c.FoldersJoined + (c.EnumName.Length > 0 ? " (" + c.EnumName + ")" : "");
-                }
-            }
-            return "";
-        }
-
-        /// <summary>Points Base camo at whatever the mod actually replaces - the sensible default.</summary>
-        private void SyncBaseCamoToSource()
-        {
-            var choice = _camoCombo.SelectedItem as CamoChoice;
-            if (choice == null) return;
-            _baseBox.Text = choice.CamoId.ToString();
         }
 
         private int SelectedSlot()
@@ -440,7 +399,6 @@ namespace Rracf
                     _camoCombo.Items.Clear();
                     foreach (CamoChoice c in analysis.Choices) _camoCombo.Items.Add(c);
                     if (_camoCombo.Items.Count > 0) _camoCombo.SelectedIndex = 0;
-                    SyncBaseCamoToSource();
                     if (_displayBox.Text.Length == 0) _displayBox.Text = suggested;
                     UpdatePreview();
                 }));
@@ -470,12 +428,19 @@ namespace Rracf
             options.SourceCamoId = choice.CamoId;
             options.TemplateFromMod = choice.TemplateFromMod;
             options.TemplateContainer = choice.TemplateContainer;
-            int baseCamo;
+            // BaseCamo is a camouflage index, not a camo ID: a signed byte where Naked is 0, Olive Drab
+            // 10, Tiger Stripe 30 and Gold -100. Negatives are legal, so blank simply means zero.
+            int baseCamo = 0;
             string baseText = _baseBox.Text.Trim();
-            if (baseText.Length == 0) baseCamo = -1;                       // -1 means "use the source camo"
-            else if (!int.TryParse(baseText, out baseCamo))
+            if (baseText.Length > 0 && !int.TryParse(baseText, out baseCamo))
             {
-                ShowError("Base camo must be a number (or left blank to match what the mod replaces).");
+                ShowError("Base camo must be a whole number between -128 and 127 (or left blank for 0).");
+                return;
+            }
+            if (baseCamo < -128 || baseCamo > 127)
+            {
+                ShowError("Base camo is stored as a single signed byte, so it must be between -128 and 127.\r\n\r\n" +
+                          "For scale: Naked is 0, Olive Drab 10, Tiger Stripe 30, Gold -100.");
                 return;
             }
             options.BaseCamoId = baseCamo;

@@ -60,9 +60,12 @@ namespace Rracf
         /// <summary>The vanilla camo whose Camouf_&lt;id&gt;_asset is used as the template. Must be the camo
         /// the replacer mod actually replaces, or the slot points at art nothing supplies.</summary>
         public int SourceCamoId;
-        /// <summary>The BaseCamo= value written into ACF_Slot&lt;slot&gt;.txt. Negative means "use the source
-        /// camo"; 0 is a real value (Normal), so it cannot double as the unset marker.</summary>
-        public int BaseCamoId = -1;
+        /// <summary>
+        /// The BaseCamo= value written into ACF_Slot&lt;slot&gt;.txt. This is a camouflage INDEX, not a
+        /// camo ID: ACF adds it to the concealment the game calculates. Naked is 0, Olive Drab 10,
+        /// Tiger Stripe 30, Gold -100. Stored by ACF as a signed byte, so -128..127.
+        /// </summary>
+        public int BaseCamoId;
         /// <summary>True when the template is the mod's own Camouf asset rather than the vanilla one.</summary>
         public bool TemplateFromMod;
         /// <summary>The .utoc holding that asset. It is deliberately not shipped: keeping it would leave
@@ -304,8 +307,12 @@ namespace Rracf
             if (Array.IndexOf(ValidSlots, o.Slot) < 0)
                 throw new InvalidOperationException("Slot must be one of " + string.Join(", ", Array.ConvertAll(ValidSlots, delegate(int i) { return i.ToString(); })) + ".");
 
-            // A negative value means "not set", so BaseCamo=0 (Normal) stays possible.
-            if (o.BaseCamoId < 0) o.BaseCamoId = o.SourceCamoId;
+            // ACF stores BaseCamo as a signed byte. Checked here so the CLI is guarded too.
+            if (o.BaseCamoId < -128 || o.BaseCamoId > 127)
+                throw new InvalidOperationException(
+                    "BaseCamo must be between -128 and 127 - ACF stores it as a single signed byte.\r\n\r\n" +
+                    "It is a concealment value, not a camo ID: Naked is 0, Olive Drab 10, " +
+                    "Tiger Stripe 30, Gold -100.");
 
             if (o.SourceCamoId < 0 || o.SourceCamoId > 99)
                 throw new InvalidOperationException("Camo ID " + o.SourceCamoId + " is out of range.");
@@ -448,8 +455,7 @@ namespace Rracf
                 result.SlotTxtPath = Path.Combine(modFolder, "ACF_Slot" + o.Slot + ".txt");
                 File.WriteAllText(result.SlotTxtPath,
                     SlotFile.Generate(o.Slot, o.BaseCamoId, o.DisplayName, o.Description));
-                log("  BaseCamo=" + o.BaseCamoId +
-                    (o.BaseCamoId == o.SourceCamoId ? "" : "  (template was camo " + o.SourceCamoId + ")"));
+                log("  BaseCamo=" + o.BaseCamoId + " (concealment value, edit the .txt to tune it)");
 
                 // 8. The replacer supplies the actual art, so it has to travel with the slot files.
                 log("Copying the replacer mod's own files...");

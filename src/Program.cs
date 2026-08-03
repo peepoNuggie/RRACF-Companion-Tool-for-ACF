@@ -119,7 +119,7 @@ namespace Rracf
             o.SourceCamoId = chosen.CamoId;
             o.TemplateFromMod = chosen.TemplateFromMod;
             o.TemplateContainer = chosen.TemplateContainer;
-            o.BaseCamoId = opts.ContainsKey("base") ? int.Parse(opts["base"]) : o.SourceCamoId;
+            o.BaseCamoId = opts.ContainsKey("base") ? int.Parse(opts["base"]) : 0;
             o.ModName = Value(opts, "name", Pipeline.SuggestName(analysis.ChosenUtoc));
             o.DisplayName = Value(opts, "display", "");
             o.Description = Value(opts, "desc", "");
@@ -158,7 +158,8 @@ namespace Rracf
             Console.WriteLine("    --slot <61-64>    ACF slot to fill; omit to just inspect the mod");
             Console.WriteLine("    --source <id>     override the detected camo used as the template");
             Console.WriteLine("                      (must be the camo the mod actually replaces)");
-            Console.WriteLine("    --base <id>       BaseCamo= value in ACF_Slot<slot>.txt; defaults to --source");
+            Console.WriteLine("    --base <n>        BaseCamo= concealment value, -128..127 (default 0).");
+            Console.WriteLine("                      Naked 0, Olive Drab 10, Tiger Stripe 30, Gold -100");
             Console.WriteLine("    --name <text>     mod name used in ACF_<name><slot>_P");
             Console.WriteLine("    --display <text>  in-game name written into ACF_Slot<slot>.txt");
             Console.WriteLine("    --desc <text>     in-game description");

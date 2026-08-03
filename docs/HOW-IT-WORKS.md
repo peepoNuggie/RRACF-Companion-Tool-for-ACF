@@ -78,8 +78,20 @@ camo referencing the fewest folders. `Naked` resolves to 11 (plain Naked), while
 only ever matches 57.
 
 **IDs 0, 52 and 53 have no asset in the game at all.** There is no `Camouf_0_asset`, so Olive Drab
-/ Normal cannot be used as a template. It is still valid as a `BaseCamo=` value, which is just a
-number ACF reads.
+/ Normal cannot be used as a template.
+
+### `BaseCamo` is not a camo ID
+
+Worth stating plainly, because the name invites the mistake and RRACF made it. `BaseCamo=` in
+`ACF_Slot<slot>.txt` is a **camouflage index**: ACF adds it to the concealment the game calculates,
+so terrain, stance and grass still apply on top. Naked is 0, Olive Drab 10, Tiger Stripe 30, Gold
+−100. ACF stores it as a signed byte, so −128..127, and negatives are perfectly normal.
+
+RRACF used to pre-fill it with the *ID* of the camo being replaced, which produced meaningless
+values such as `BaseCamo=26` for a mod replacing DPM. Worse, it treated a negative as "not set", so
+the entire negative half of the range — the values that make a slot easier to spot — could not be
+entered at all. The field is now never auto-filled and defaults to 0, matching ACF's own default.
+It affects stealth only, never appearance.
 
 ---
 
