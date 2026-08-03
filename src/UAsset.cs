@@ -43,6 +43,7 @@ namespace Rracf
         public int ExportCount { get; private set; }
         public int ExportOffset { get; private set; }
         public int DependsOffset { get; private set; }
+        public int TotalHeaderSize { get; private set; }
 
         public byte[] Data { get { return _data; } }
 
@@ -127,6 +128,7 @@ namespace Rracf
                     "The camouflage assets this tool edits always have zero, so it refuses to guess at the layout.");
 
             _offsetFields.Add(new OffsetField(pos, false));  // TotalHeaderSize
+            TotalHeaderSize = ReadI32(pos);
             pos += 4;
 
             _packageNameLenPos = pos;
@@ -310,6 +312,7 @@ namespace Rracf
             ParseSummary(false);
             RemapOffsets(edits);
             ParseSummary(true);
+            VerifyExportOffsets();
 
             // NamesReferencedFromExportDataCount describes the export data, which a rename does not
             // touch, so it is left exactly as found. Round-tripping a known-good mod pak through
@@ -385,15 +388,38 @@ namespace Rracf
                 int stride = (DependsOffset - ExportOffset) / ExportCount;
                 if (stride >= 44 && stride * ExportCount == DependsOffset - ExportOffset)
                 {
+                    // ExportOffset still holds its ORIGINAL value here, but the export table has
+                    // already shifted in the rewritten file - so walk it at its new position, or the
+                    // write lands short and corrupts the preceding SerialSize.
+                    int tableStart = ExportOffset + DeltaBefore(edits, ExportOffset);
                     for (int i = 0; i < ExportCount; i++)
                     {
-                        int serialOffsetPos = ExportOffset + i * stride + 36;
+                        int serialOffsetPos = tableStart + i * stride + 36;
                         if (serialOffsetPos + 8 > _data.Length) break;
                         long v = ReadI64(serialOffsetPos);
                         if (v > 0) WriteI64(serialOffsetPos, v + DeltaBefore(edits, v));
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// The first export's data begins immediately after the header, so its SerialOffset must equal
+        /// TotalHeaderSize. Getting this wrong does not fail any packing step - the game crashes on load
+        /// with "Serial size mismatch" - so it is checked here.
+        /// </summary>
+        private void VerifyExportOffsets()
+        {
+            if (ExportCount <= 0 || ExportOffset <= 0 || DependsOffset <= ExportOffset) return;
+            int stride = (DependsOffset - ExportOffset) / ExportCount;
+            if (stride < 44 || stride * ExportCount != DependsOffset - ExportOffset) return;
+
+            long first = ReadI64(ExportOffset + 36);
+            if (first != TotalHeaderSize)
+                throw new AssetFormatException(
+                    "Internal check failed: the first export starts at byte " + first +
+                    " but the header ends at " + TotalHeaderSize +
+                    ". The rewritten asset would crash the game on load, so it has not been written.");
         }
 
         /// <summary>How many bytes were inserted at or before <paramref name="originalOffset"/>.</summary>

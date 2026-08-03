@@ -320,9 +320,9 @@ namespace Rracf
             string stagingName = modName + o.Slot;               // e.g. Zero63
             string outputStem = "ACF_" + modName + o.Slot + "_P"; // e.g. ACF_Zero63_P
 
-            // One self-contained folder that can be dropped straight into Content\Paks\mods.
+            // One self-contained folder that can be dropped straight into Content\Paks\mods. It is
+            // created only once the checks have passed, so a refused build leaves nothing behind.
             string modFolder = Path.Combine(o.OutputFolder, "ACF_" + modName + o.Slot);
-            Directory.CreateDirectory(modFolder);
 
             string scratch = Path.Combine(Path.GetTempPath(), "RRACF_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(scratch);
@@ -405,6 +405,7 @@ namespace Rracf
                     throw new InvalidOperationException("repak did not produce " + stagedPak + ".");
 
                 log("Converting to Zen...");
+                Directory.CreateDirectory(modFolder);   // only now that every check has passed
                 string outUtoc = Path.Combine(modFolder, outputStem + ".utoc");
                 tools.RunRetoc(new[] { "to-zen", stagedPak, outUtoc, "--version", Tools.EngineVersion }, scratch, log);
 

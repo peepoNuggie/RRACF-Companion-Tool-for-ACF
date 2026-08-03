@@ -222,6 +222,18 @@ The build fails if they are equal.
 **Art reference count.** The template must still name at least one `/Body/Camouflage/<folder>/`
 path, or the slot would be empty in game (section 6).
 
+**Export offset invariant.** The first export's data begins immediately after the header, so its
+`SerialOffset` must equal `TotalHeaderSize`. This one was added after a real crash: the resize code
+walked the export table at its *old* offset, so on a grown file it wrote `SerialOffset` three bytes
+early and corrupted the entry. Everything packed and verified cleanly, and the game died on load
+with
+
+```
+Serial size mismatch: Expected read size 192, Actual read size 24
+```
+
+Nothing in the build pipeline can notice that, which is why it is asserted directly.
+
 ---
 
 ## 8. What does not work
