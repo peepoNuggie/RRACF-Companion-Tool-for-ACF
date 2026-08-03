@@ -1,0 +1,522 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Threading;
+using System.Windows.Forms;
+
+namespace Rracf
+{
+    internal class MainForm : Form
+    {
+        private TextBox _modBox, _paksBox, _outBox, _displayBox, _descBox, _logBox, _baseBox;
+        private ComboBox _camoCombo, _slotCombo;
+        private Label _baseHint;
+        private CheckBox _openWhenDone;
+        private Button _analyseButton, _buildButton, _rebuildMapButton;
+        private Label _previewLabel, _statusLabel;
+
+        private Tools _tools;
+        private List<CamoEntry> _camoMap;
+        private readonly Settings _settings;
+        private readonly string _appFolder;
+        private bool _busy;
+
+        public MainForm()
+        {
+            _appFolder = Path.GetDirectoryName(Application.ExecutablePath);
+            _settings = Settings.Load(Path.Combine(_appFolder, "rracf-settings.txt"));
+            _tools = Tools.Discover(_appFolder);
+
+            Text = "RRACF " + AppInfo.Version + " - Replacer to ACF Slot Converter";
+            Font = new Font("Segoe UI", 9f);
+            ClientSize = new Size(760, 650);
+            MinimumSize = new Size(700, 590);
+            StartPosition = FormStartPosition.CenterScreen;
+
+            BuildLayout();
+            LoadSettingsIntoUi();
+        }
+
+        private const int LabelX = 12, FieldX = 150, FieldW = 480, BrowseX = 640, RowH = 30;
+
+        private Label AddLabel(string text, int y)
+        {
+            var l = new Label();
+            l.Text = text;
+            l.Location = new Point(LabelX, y + 3);
+            l.Size = new Size(135, 20);
+            Controls.Add(l);
+            return l;
+        }
+
+        private TextBox AddField(int y)
+        {
+            var t = new TextBox();
+            t.Location = new Point(FieldX, y);
+            t.Size = new Size(FieldW, 23);
+            t.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(t);
+            return t;
+        }
+
+        private Button AddBrowse(int y, EventHandler handler)
+        {
+            var b = new Button();
+            b.Text = "Browse...";
+            b.Location = new Point(BrowseX, y - 1);
+            b.Size = new Size(100, 25);
+            b.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            b.Click += handler;
+            Controls.Add(b);
+            return b;
+        }
+
+        private void BuildLayout()
+        {
+            int y = 14;
+
+            AddLabel("Replacer mod folder", y);
+            _modBox = AddField(y);
+            AddBrowse(y, delegate { BrowseFolder(_modBox, "Select the folder containing the replacer mod"); });
+            y += RowH;
+
+            AddLabel("Game Paks folder", y);
+            _paksBox = AddField(y);
+            AddBrowse(y, delegate { BrowseFolder(_paksBox, "Select the game's Content\\Paks folder"); });
+            y += RowH;
+
+            AddLabel("Output folder", y);
+            _outBox = AddField(y);
+            AddBrowse(y, delegate { BrowseFolder(_outBox, "Where should the finished mod go?"); });
+            y += RowH + 8;
+
+            _analyseButton = new Button();
+            _analyseButton.Text = "1.  Analyse mod";
+            _analyseButton.Location = new Point(FieldX, y);
+            _analyseButton.Size = new Size(160, 30);
+            _analyseButton.Click += OnAnalyse;
+            Controls.Add(_analyseButton);
+
+            _rebuildMapButton = new Button();
+            _rebuildMapButton.Text = "Rebuild camo list";
+            _rebuildMapButton.Location = new Point(FieldX + 172, y);
+            _rebuildMapButton.Size = new Size(140, 30);
+            _rebuildMapButton.Click += OnRebuildMap;
+            Controls.Add(_rebuildMapButton);
+
+            _statusLabel = new Label();
+            _statusLabel.Location = new Point(FieldX + 322, y + 7);
+            _statusLabel.Size = new Size(300, 20);
+            _statusLabel.ForeColor = Color.DimGray;
+            _statusLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(_statusLabel);
+            y += 44;
+
+            AddLabel("Replaces", y);
+            _camoCombo = new ComboBox();
+            _camoCombo.Location = new Point(FieldX, y);
+            _camoCombo.Size = new Size(FieldW + 100, 23);
+            _camoCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            _camoCombo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _camoCombo.SelectedIndexChanged += delegate { SyncBaseCamoToSource(); };
+            Controls.Add(_camoCombo);
+            y += RowH;
+
+            AddLabel("Base camo", y);
+            _baseBox = new TextBox();
+            _baseBox.Location = new Point(FieldX, y);
+            _baseBox.Size = new Size(60, 23);
+            _baseBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            Controls.Add(_baseBox);
+            _baseHint = new Label();
+            _baseHint.Location = new Point(FieldX + 70, y + 3);
+            _baseHint.Size = new Size(570, 20);
+            _baseHint.ForeColor = Color.DimGray;
+            _baseHint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(_baseHint);
+            _baseBox.TextChanged += delegate { UpdateBaseHint(); };
+            y += RowH;
+
+            AddLabel("ACF slot", y);
+            _slotCombo = new ComboBox();
+            _slotCombo.Location = new Point(FieldX, y);
+            _slotCombo.Size = new Size(160, 23);
+            _slotCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            foreach (int s in Pipeline.ValidSlots)
+                _slotCombo.Items.Add("Slot " + (s - 60) + "  (camo ID " + s + ")");
+            _slotCombo.SelectedIndex = 0;
+            _slotCombo.SelectedIndexChanged += delegate { UpdatePreview(); };
+            Controls.Add(_slotCombo);
+            y += RowH;
+
+            AddLabel("In-game name", y);
+            _displayBox = AddField(y);
+            _displayBox.Size = new Size(200, 23);
+            _displayBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            _displayBox.TextChanged += delegate { UpdatePreview(); };
+            _previewLabel = new Label();
+            _previewLabel.Location = new Point(FieldX + 210, y + 3);
+            _previewLabel.Size = new Size(430, 20);
+            _previewLabel.ForeColor = Color.DimGray;
+            _previewLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(_previewLabel);
+            y += RowH;
+
+            AddLabel("Description", y);
+            _descBox = AddField(y);
+            y += RowH + 8;
+
+            _buildButton = new Button();
+            _buildButton.Text = "2.  Build ACF slot mod";
+            _buildButton.Location = new Point(FieldX, y);
+            _buildButton.Size = new Size(200, 34);
+            Controls.Add(_buildButton);
+            _buildButton.Click += OnBuild;
+
+            _openWhenDone = new CheckBox();
+            _openWhenDone.Text = "Open the output folder when finished";
+            _openWhenDone.Location = new Point(FieldX + 212, y + 8);
+            _openWhenDone.Size = new Size(300, 22);
+            _openWhenDone.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            Controls.Add(_openWhenDone);
+            y += 46;
+
+            var logLabel = new Label();
+            logLabel.Text = "Log";
+            logLabel.Location = new Point(LabelX, y);
+            logLabel.Size = new Size(100, 18);
+            Controls.Add(logLabel);
+            y += 20;
+
+            _logBox = new TextBox();
+            _logBox.Multiline = true;
+            _logBox.ReadOnly = true;
+            _logBox.ScrollBars = ScrollBars.Vertical;
+            _logBox.Font = new Font("Consolas", 8.5f);
+            _logBox.BackColor = Color.White;
+            _logBox.Location = new Point(LabelX, y);
+            _logBox.Size = new Size(ClientSize.Width - 24, ClientSize.Height - y - 12);
+            _logBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(_logBox);
+        }
+
+        private void LoadSettingsIntoUi()
+        {
+            _modBox.Text = _settings.Get("input", Path.Combine(_appFolder, "Input"));
+            _paksBox.Text = _settings.Get("paks", GameFinder.FindPaksFolder());
+            _outBox.Text = _settings.Get("output", Path.Combine(_appFolder, "Output"));
+
+            _openWhenDone.Checked = _settings.Get("openwhendone", "1") != "0";
+
+            // Empty folders do not survive being zipped up, so make sure they exist on first run.
+            EnsureFolder(_modBox.Text);
+            EnsureFolder(_outBox.Text);
+            if (_settings.Get("retoc", "").Length > 0 || _settings.Get("repak", "").Length > 0)
+            {
+                _tools = new Tools(
+                    _settings.Get("retoc", _tools.RetocPath),
+                    _settings.Get("repak", _tools.RepakPath));
+            }
+
+            Log("RRACF " + AppInfo.Version + " - turns a replacer camo mod into an ACF slot mod.");
+            Log("retoc: " + (File.Exists(_tools.RetocPath) ? _tools.RetocPath : "NOT FOUND"));
+            Log("repak: " + (File.Exists(_tools.RepakPath) ? _tools.RepakPath : "NOT FOUND"));
+            if (!_tools.IsReady)
+            {
+                Log("");
+                Log("*** RRACF cannot run without these. Copy the retoc and repak folders");
+                Log("*** next to RRACF.exe (" + _appFolder + "), then restart.");
+            }
+            Log("");
+            // If the camo list was built on a previous run, fill the Base camo box straight away
+            // rather than leaving it empty until the first Analyse.
+            List<CamoEntry> cached = CamoMap.Load(Path.Combine(_appFolder, "rracf-camomap.txt"));
+            if (cached != null)
+            {
+                CamoMap.ApplyEnumNames(cached, GameFinder.FindEnumHeader(_paksBox.Text, _settings.Get("enums", "")),
+                    delegate(string s) { });
+                _camoMap = cached;
+                UpdateBaseHint();
+            }
+
+            Log("Step 1: put the replacer mod in");
+            Log("  " + _modBox.Text);
+            Log("then press Analyse.");
+            UpdatePreview();
+            UpdateStatus();
+        }
+
+        private static void EnsureFolder(string path)
+        {
+            try { if (!string.IsNullOrEmpty(path)) Directory.CreateDirectory(path); }
+            catch (Exception) { /* a bad saved path must not stop the window opening */ }
+        }
+
+        private void UpdateStatus()
+        {
+            string cache = Path.Combine(_appFolder, "rracf-camomap.txt");
+            _statusLabel.Text = File.Exists(cache)
+                ? "Camo list ready."
+                : "Camo list will be built on first analyse.";
+        }
+
+        private void UpdatePreview()
+        {
+            string name = Pipeline.SanitiseName(_displayBox == null ? "" : _displayBox.Text);
+            int slot = SelectedSlot();
+            string stem = "ACF_" + name + slot;
+            _previewLabel.Text = name.Length == 0
+                ? "-> enter a name to see the output"
+                : "-> " + stem + "\\" + stem + "_P.pak / .ucas / .utoc";
+        }
+
+        /// <summary>Names whichever camo ID has been typed into the Base camo box.</summary>
+        private void UpdateBaseHint()
+        {
+            string text = _baseBox.Text.Trim();
+            if (text.Length == 0)
+            {
+                _baseHint.Text = "written as BaseCamo= in the .txt - safe to experiment with";
+                return;
+            }
+            int id;
+            if (!int.TryParse(text, out id))
+            {
+                _baseHint.Text = "that is not a number";
+                return;
+            }
+            string name = DescribeCamo(id);
+            _baseHint.Text = "BaseCamo=" + id + (name.Length > 0 ? "   " + name : "   (not a camo this game ships)");
+        }
+
+        private string DescribeCamo(int id)
+        {
+            if (_camoMap != null)
+            {
+                foreach (CamoEntry c in _camoMap)
+                {
+                    if (c.Id != id) continue;
+                    return c.FoldersJoined + (c.EnumName.Length > 0 ? " (" + c.EnumName + ")" : "");
+                }
+            }
+            return "";
+        }
+
+        /// <summary>Points Base camo at whatever the mod actually replaces - the sensible default.</summary>
+        private void SyncBaseCamoToSource()
+        {
+            var choice = _camoCombo.SelectedItem as CamoChoice;
+            if (choice == null) return;
+            _baseBox.Text = choice.CamoId.ToString();
+        }
+
+        private int SelectedSlot()
+        {
+            int i = _slotCombo == null ? 0 : _slotCombo.SelectedIndex;
+            if (i < 0) i = 0;
+            return Pipeline.ValidSlots[i];
+        }
+
+        private void BrowseFolder(TextBox target, string description)
+        {
+            using (var d = new FolderBrowserDialog())
+            {
+                d.Description = description;
+                if (Directory.Exists(target.Text)) d.SelectedPath = target.Text;
+                if (d.ShowDialog(this) == DialogResult.OK) target.Text = d.SelectedPath;
+            }
+        }
+
+        private void Log(string message)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action<string>(Log), message); return; }
+            _logBox.AppendText(message + Environment.NewLine);
+        }
+
+        private void SetBusy(bool busy)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action<bool>(SetBusy), busy); return; }
+            _busy = busy;
+            _analyseButton.Enabled = !busy;
+            _buildButton.Enabled = !busy;
+            _rebuildMapButton.Enabled = !busy;
+            Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
+        }
+
+        private void RunInBackground(ThreadStart work)
+        {
+            if (_busy) return;
+            SetBusy(true);
+            var t = new Thread(delegate()
+            {
+                try
+                {
+                    work();
+                }
+                catch (Exception ex)
+                {
+                    Log("");
+                    Log("ERROR: " + ex.Message);
+                    ShowError(ex.Message);
+                }
+                finally
+                {
+                    SetBusy(false);
+                }
+            });
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        private void ShowError(string message)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action<string>(ShowError), message); return; }
+            MessageBox.Show(this, message, "RRACF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private List<CamoEntry> EnsureCamoMap(bool forceRebuild)
+        {
+            string cachePath = Path.Combine(_appFolder, "rracf-camomap.txt");
+            if (!forceRebuild && _camoMap != null) return _camoMap;
+
+            List<CamoEntry> map = forceRebuild ? null : CamoMap.Load(cachePath);
+            if (map == null)
+            {
+                string scratch = Path.Combine(Path.GetTempPath(), "RRACF_map_" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(scratch);
+                try
+                {
+                    map = CamoMap.Build(_tools, _paksBox.Text, scratch, Log);
+                    CamoMap.Save(map, cachePath);
+                }
+                finally { try { Io.DeleteDirectory(scratch); } catch (Exception) { } }
+            }
+            else
+            {
+                Log("Loaded the camo list from " + Path.GetFileName(cachePath) + " (" + map.Count + " camouflages).");
+            }
+
+            CamoMap.ApplyEnumNames(map, GameFinder.FindEnumHeader(_paksBox.Text, _settings.Get("enums", "")), Log);
+            _camoMap = map;
+            BeginInvoke(new Action(UpdateStatus));
+            return _camoMap;
+        }
+
+        private void OnRebuildMap(object sender, EventArgs e)
+        {
+            RunInBackground(delegate
+            {
+                _tools.Validate();
+                Log("");
+                Log("Rebuilding the camo list from the game...");
+                EnsureCamoMap(true);
+                Log("Camo list rebuilt.");
+            });
+        }
+
+        private void OnAnalyse(object sender, EventArgs e)
+        {
+            string modPath = _modBox.Text.Trim();
+            SaveSettings();
+            RunInBackground(delegate
+            {
+                _tools.Validate();
+                Log("");
+                Log("=== Analysing " + modPath + " ===");
+                var map = EnsureCamoMap(false);
+                string scratch = Path.Combine(Path.GetTempPath(), "RRACF_an_" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(scratch);
+                Analysis analysis;
+                try { analysis = Pipeline.Analyze(_tools, modPath, map, scratch, Log); }
+                finally { try { Io.DeleteDirectory(scratch); } catch (Exception) { } }
+
+                foreach (string f in analysis.UnmatchedFolders)
+                    Log("Note: folder \"" + f + "\" does not match any vanilla camouflage - ignoring it.");
+
+                string suggested = Pipeline.SuggestName(analysis.ChosenUtoc);
+                BeginInvoke(new Action(delegate
+                {
+                    _camoCombo.Items.Clear();
+                    foreach (CamoChoice c in analysis.Choices) _camoCombo.Items.Add(c);
+                    if (_camoCombo.Items.Count > 0) _camoCombo.SelectedIndex = 0;
+                    SyncBaseCamoToSource();
+                    if (_displayBox.Text.Length == 0) _displayBox.Text = suggested;
+                    UpdatePreview();
+                }));
+
+                Log("This mod replaces:");
+                foreach (CamoChoice c in analysis.Choices) Log("  " + c);
+                if (analysis.Choices.Count > 1)
+                    Log("More than one match - the best guess is selected, change it in the \"Replaces\" box if needed.");
+                Log("Step 2: choose a slot and press Build.");
+            });
+        }
+
+        private void OnBuild(object sender, EventArgs e)
+        {
+            var choice = _camoCombo.SelectedItem as CamoChoice;
+            if (choice == null)
+            {
+                ShowError("Press \"Analyse mod\" first so the tool knows which camouflage this mod replaces.");
+                return;
+            }
+
+            var options = new BuildOptions();
+            options.ModInput = _modBox.Text.Trim();
+            options.PaksFolder = _paksBox.Text.Trim();
+            options.OutputFolder = _outBox.Text.Trim();
+            options.Slot = SelectedSlot();
+            options.SourceCamoId = choice.CamoId;
+            options.TemplateFromMod = choice.TemplateFromMod;
+            options.TemplateContainer = choice.TemplateContainer;
+            int baseCamo;
+            string baseText = _baseBox.Text.Trim();
+            if (baseText.Length == 0) baseCamo = -1;                       // -1 means "use the source camo"
+            else if (!int.TryParse(baseText, out baseCamo))
+            {
+                ShowError("Base camo must be a number (or left blank to match what the mod replaces).");
+                return;
+            }
+            options.BaseCamoId = baseCamo;
+            options.DisplayName = _displayBox.Text.Trim();
+            options.Description = _descBox.Text.Trim();
+            SaveSettings();
+
+            RunInBackground(delegate
+            {
+                Log("");
+                Log("=== Building slot " + options.Slot + " from camo " + options.SourceCamoId + " ===");
+                BuildResult r = Pipeline.Build(_tools, options, Log);
+                Log("");
+                Log("Created " + r.ModFolder + " containing:");
+                foreach (string p in new[] { r.PakPath, r.UcasPath, r.UtocPath, r.SlotTxtPath })
+                    Log("  " + Path.GetFileName(p));
+                foreach (string p in r.CopiedReplacerFiles)
+                    Log("  " + Path.GetFileName(p) + "   (from the replacer mod)");
+                Log("");
+                Log("Drop that whole folder into the game's Content\\Paks\\mods folder.");
+                OpenOutputIfWanted(r.ModFolder);
+            });
+        }
+
+        private void OpenOutputIfWanted(string outputFolder)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action<string>(OpenOutputIfWanted), outputFolder); return; }
+            if (!_openWhenDone.Checked) return;
+            try { System.Diagnostics.Process.Start("explorer.exe", Io.Quote(outputFolder)); }
+            catch (Exception) { }
+        }
+
+        private void SaveSettings()
+        {
+            _settings.Set("openwhendone", _openWhenDone.Checked ? "1" : "0");
+            _settings.Set("input", _modBox.Text.Trim());
+            _settings.Set("paks", _paksBox.Text.Trim());
+            _settings.Set("output", _outBox.Text.Trim());
+            _settings.Set("retoc", _tools.RetocPath);
+            _settings.Set("repak", _tools.RepakPath);
+            _settings.Save();
+        }
+    }
+}
