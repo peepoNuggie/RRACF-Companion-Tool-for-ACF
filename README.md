@@ -106,9 +106,10 @@ Reading the first kind needs the game's `global.utoc` **and** all of the mod's o
 together. Anything retoc cannot resolve is written out as `/Engine/UnknownPackage`, which silently
 strips the slot's link to the art — it builds cleanly and shows up empty in game.
 
-A few mods ship a camo asset with **no art of their own**, taking it from a companion download on
-the same Nexus page. RRACF refuses those rather than build an empty slot; put the companion mod in
-the Input folder alongside and it works.
+A few mods ship a camo asset with **no art of their own**, taking it from a base mod on the same
+Nexus page — on Nexus these are usually small files under "Optional files". Analyse spots them and
+says which is missing, and the build refuses rather than produce an empty slot. Put the base mod in
+the Input folder alongside the add-on and both convert normally.
 
 ### Details that matter
 

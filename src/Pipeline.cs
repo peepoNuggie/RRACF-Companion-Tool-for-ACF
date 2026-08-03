@@ -49,6 +49,13 @@ namespace Rracf
         public List<string> Containers = new List<string>();
         /// <summary>The container that actually carries the camouflage art.</summary>
         public string ChosenUtoc = "";
+
+        /// <summary>A container holding a camo definition but no art of its own - an add-on.</summary>
+        public bool AddOnDetected;
+        /// <summary>True when an add-on was found and nothing in the Input folder supplies its art.</summary>
+        public bool BaseModMissing;
+        /// <summary>Plain-English explanation, shown to the user when an add-on is detected.</summary>
+        public string AddOnMessage = "";
     }
 
     internal class BuildOptions
@@ -155,6 +162,8 @@ namespace Rracf
 
             var samplePackages = new List<string>();
             int bestCamoPackages = 0;
+            var addOnContainers = new List<string>();
+            var artContainers = new List<string>();
 
             foreach (string container in analysis.Containers)
             {
@@ -170,10 +179,17 @@ namespace Rracf
                     analysis.ChosenUtoc = container;
                 }
 
+                // A container carrying a camo definition but shipping no art of its own is an add-on:
+                // it borrows meshes from a base mod, and is usually a tiny "Optional file" on Nexus.
+                int camoDefs = 0, artPackages = 0;
                 foreach (ManifestEntry e in entries)
                 {
                     if (samplePackages.Count < 8) samplePackages.Add(e.PackageName);
+                    if (CamoAssetPattern.IsMatch(e.PackageName)) camoDefs++;
+                    else if (e.PackageName.StartsWith("/Game/Art/", StringComparison.OrdinalIgnoreCase)) artPackages++;
                 }
+                if (artPackages > 0) artContainers.Add(container);
+                if (camoDefs > 0 && artPackages == 0) addOnContainers.Add(container);
 
                 // Does this container ship its own Camouf_<id>_asset? If so the mod already points a
                 // camo at its art, and that asset is exactly what we want to rename onto the slot.
@@ -225,6 +241,8 @@ namespace Rracf
                 return a.CamoId.CompareTo(b.CamoId);
             });
 
+            DescribeAddOn(analysis, addOnContainers, artContainers);
+
             if (analysis.Choices.Count == 0)
                 throw new InvalidOperationException(BuildNoCamoMessage(analysis, samplePackages));
 
@@ -253,6 +271,38 @@ namespace Rracf
             log("*** conflict in game. Leave only one mod in the Input folder.");
             foreach (string f in folders) log("***   " + f);
             log("");
+        }
+
+        /// <summary>
+        /// Warns when the Input folder holds a camo definition and no art to go with it.
+        ///
+        /// Only the missing case is reported. Plenty of complete downloads split their definition and
+        /// their art across two paks - Ocelot is one - so "this container has no art" on its own means
+        /// nothing. What matters is whether any art is present anywhere in the Input folder.
+        /// </summary>
+        private static void DescribeAddOn(Analysis analysis, List<string> addOns, List<string> artContainers)
+        {
+            if (addOns.Count == 0 || artContainers.Count > 0) return;
+
+            analysis.AddOnDetected = true;
+            analysis.BaseModMissing = true;
+
+            var names = new List<string>();
+            foreach (string a in addOns) names.Add(Path.GetFileName(a));
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("This looks like an ADD-ON rather than a complete mod.");
+            sb.AppendLine();
+            sb.AppendLine(string.Join(", ", names.ToArray()) +
+                          (names.Count == 1 ? " contains" : " contain") +
+                          " only a camouflage definition and no art at all.");
+            sb.AppendLine();
+            sb.AppendLine("Mods like this reuse the meshes from a base mod. On Nexus they are usually");
+            sb.AppendLine("small files listed under \"Optional files\" on the base mod's page.");
+            sb.AppendLine();
+            sb.AppendLine("Put the base mod in the Input folder as well and press Analyse again.");
+            sb.Append("Without it the slot would have no clothing on it in game.");
+            analysis.AddOnMessage = sb.ToString();
         }
 
         private static string BuildNoCamoMessage(Analysis analysis, List<string> samplePackages)

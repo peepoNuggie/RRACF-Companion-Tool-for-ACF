@@ -92,6 +92,13 @@ namespace Rracf
             try { analysis = Pipeline.Analyze(tools, modInput, map, scratch, log); }
             finally { try { Io.DeleteDirectory(scratch); } catch (Exception) { } }
 
+            if (analysis.AddOnDetected)
+            {
+                Console.WriteLine();
+                Console.WriteLine(analysis.AddOnMessage);
+                Console.WriteLine();
+            }
+
             Console.WriteLine("This mod replaces:");
             foreach (CamoChoice c in analysis.Choices) Console.WriteLine("  " + c);
 

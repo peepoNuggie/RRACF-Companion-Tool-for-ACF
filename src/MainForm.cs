@@ -415,6 +415,16 @@ namespace Rracf
                     UpdatePreview();
                 }));
 
+                if (analysis.AddOnDetected)
+                {
+                    Log("");
+                    foreach (string line in analysis.AddOnMessage.Replace("\r\n", "\n").Split('\n'))
+                        Log(analysis.BaseModMissing ? "*** " + line : line);
+                    Log("");
+                    if (analysis.BaseModMissing)
+                        ShowError(analysis.AddOnMessage);
+                }
+
                 Log("This mod replaces:");
                 foreach (CamoChoice c in analysis.Choices) Log("  " + c);
                 if (analysis.Choices.Count > 1)

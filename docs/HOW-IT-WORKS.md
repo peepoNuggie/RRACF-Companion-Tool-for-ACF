@@ -203,7 +203,14 @@ The tell is size: with imports lost, the Ocelot slot came out at 1401 bytes agai
 
 A few downloads ship *only* a camo asset and take their art from a companion download — usually the
 base mod on the same Nexus page. "The Boss' Mantle over Black Camo" is one: a single 1851-byte pak
-whose only package is `Camouf_9_asset`, and whose imports resolve to nothing on their own.
+whose only package is `Camouf_9_asset`, and whose imports resolve to nothing on their own. Both of
+its variants are listed as 2 KB **Optional files** under The Boss' Sneaking Suit.
+
+**Analyse** catches this before any building happens: if the Input folder contains a camo definition
+and nothing at all under `/Game/Art/`, RRACF says so and points at the base mod. The test is
+"is there any art anywhere in Input", not "does this container have art" — plenty of complete
+downloads split their definition and their art across two paks, Ocelot among them, so the
+per-container view produces nothing but false alarms.
 
 Converted alone, that produces a slot referencing no art whatsoever. It packs, verifies and installs
 without complaint, and is an empty camo in game. Putting the companion download in the Input folder
