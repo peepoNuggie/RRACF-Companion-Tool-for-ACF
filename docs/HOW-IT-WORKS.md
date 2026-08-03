@@ -187,6 +187,23 @@ with no link to any art — an empty camo in game, with nothing anywhere reporti
 The tell is size: with imports lost, the Ocelot slot came out at 1401 bytes against the hand-built
 2224.
 
+### Some mods have no art of their own
+
+A few downloads ship *only* a camo asset and take their art from a companion download — usually the
+base mod on the same Nexus page. "The Boss' Mantle over Black Camo" is one: a single 1851-byte pak
+whose only package is `Camouf_9_asset`, and whose imports resolve to nothing on their own.
+
+Converted alone, that produces a slot referencing no art whatsoever. It packs, verifies and installs
+without complaint, and is an empty camo in game. So after extracting the template RRACF counts the
+`/Body/Camouflage/<folder>/` references in it, and refuses the build if there are none, pointing at
+the likely cause. Putting the companion download in the Input folder alongside it fixes the
+resolution — the Mantle then finds 7 art references and builds.
+
+Note that a nonzero `/Engine/UnknownPackage` count is *not* on its own a failure: several mods that
+match their hand-built references byte for byte still carry one unresolved import, because the
+staged folder holds only `global.utoc` and the mod, not the whole game. What matters is whether any
+camouflage art survived.
+
 ---
 
 ## 7. Verification
@@ -201,6 +218,9 @@ name survives anywhere in the asset.
 compares chunk IDs. A chunk ID is derived from the package name, so if the rename had not really
 taken, the two would match and the pak would override the vanilla camo instead of filling a slot.
 The build fails if they are equal.
+
+**Art reference count.** The template must still name at least one `/Body/Camouflage/<folder>/`
+path, or the slot would be empty in game (section 6).
 
 ---
 
@@ -235,6 +255,24 @@ been shipped and played. The extra names in the larger file are unread padding, 
 work — but the smaller output for the overwrite pattern (2b) **has not been confirmed in game yet**,
 and that is the one claim here resting on reasoning rather than measurement.
 
-All 13 mods in local testing convert without error, four of them across the digit boundary
-(camo 2, 4 and 9 → slot 61), exercising the header resize. Those were verified by round-tripping
-the finished slot back to legacy and confirming both the package name and the art paths.
+Of 13 real replacer mods tested end to end, 11 convert and were confirmed by round-tripping the
+finished slot back to legacy and checking the package name and the art folder it points at:
+
+| mod | camo | art folder | refs |
+|---|---|---|---|
+| Big Boss' suit over Leaf | 2 | `Sna_Suit` | 8 |
+| DUKE's jumpsuit over KLMK | 40 | `Duke` | 3 |
+| EVA's suit and jacket | 4 | `EVA` | 7 |
+| Ocelot's Uniform over Animal | 29 | `Ocelot_Uniform` | 9 |
+| Para-Medic's Jacket over DPM | 26 | `Med_Jacket` | 3 |
+| The Boss' Sneaking Suit over Snake | 23 | `Boss_Sneaking_Suit` | 5 |
+| The End's Fatigues | 19 | `End_Fatigues` | 4 |
+| The Fear's Fatigues | 18 | `Fear_Fatigues` | 5 |
+| The Fury's Suit over Fire | 20 | `Fury_Suit` | 9 |
+| The Pain's Fatigues | 17 | `Pain_Fatigues` | 5 |
+| The Sorrow's Uniform over Spirit | 21 | `Sorrow_Uniform` | 9 |
+
+The other two — both variants of The Boss' Mantle — are correctly *refused*, because they carry no
+art of their own (section 6). With their companion download in the Input folder they build fine.
+
+Camo IDs 2, 4 and 9 cross the digit boundary, exercising the header resize.

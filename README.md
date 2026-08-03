@@ -103,6 +103,10 @@ Reading the first kind needs the game's `global.utoc` **and** all of the mod's o
 together. Anything retoc cannot resolve is written out as `/Engine/UnknownPackage`, which silently
 strips the slot's link to the art — it builds cleanly and shows up empty in game.
 
+A few mods ship a camo asset with **no art of their own**, taking it from a companion download on
+the same Nexus page. RRACF refuses those rather than build an empty slot; put the companion mod in
+the Input folder alongside and it works.
+
 ### Details that matter
 
 **The camo list is derived from the game, not from the enum.** The `GM_CAMOUF_*` names in

@@ -375,6 +375,11 @@ namespace Rracf
                     File.Delete(f);
                 }
 
+                // 3b. The asset is only useful if it still points at some art. A mod that ships a camo
+                //     asset but no art of its own depends on a companion download; without that in the
+                //     Input folder its imports resolve to nothing and the slot comes out empty in game.
+                CheckArtReferences(File.ReadAllBytes(srcUasset), oldName, log);
+
                 // 4. Rename the asset onto the ACF slot.
                 log("Renaming " + oldName + " to " + newName + "...");
                 var asset = new UAsset(File.ReadAllBytes(srcUasset));
@@ -458,6 +463,34 @@ namespace Rracf
                 try { Io.DeleteDirectory(scratch); }
                 catch (Exception e) { log("Note: could not clean up " + scratch + " (" + e.Message + ")"); }
             }
+        }
+
+        /// <summary>
+        /// Fails the build if the camo asset no longer names any camouflage art.
+        ///
+        /// retoc writes imports it cannot resolve as /Engine/UnknownPackage. A slot built from such an
+        /// asset packs, verifies and installs perfectly happily, then shows up as an empty camo - so
+        /// this is checked rather than left to be discovered in game.
+        /// </summary>
+        private static void CheckArtReferences(byte[] assetBytes, string assetName, Action<string> log)
+        {
+            string text = System.Text.Encoding.ASCII.GetString(assetBytes);
+            int artRefs = Regex.Matches(text, "/Body/Camouflage/[A-Za-z0-9_]+/", RegexOptions.IgnoreCase).Count;
+            int unresolved = Regex.Matches(text, "/Engine/UnknownPackage").Count;
+
+            if (artRefs > 0)
+            {
+                log("  points at " + artRefs + " camouflage art reference" + (artRefs == 1 ? "" : "s"));
+                if (unresolved > 0)
+                    log("  note: " + unresolved + " import(s) could not be resolved");
+                return;
+            }
+
+            throw new InvalidOperationException(
+                assetName + " does not point at any camouflage art, so the slot would be empty in game.\r\n\r\n" +
+                "This usually means the mod ships only a camo asset and gets its art from a separate " +
+                "download - often the base mod on the same Nexus page. Put that download in the Input " +
+                "folder alongside this one and try again.");
         }
 
         /// <summary>
