@@ -10,10 +10,11 @@ Point it at a mod, give it a name, pick a slot. It works out the rest.
 >
 > **[Download RRACF on Nexus Mods](https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/236)**
 >
-> This repository holds **source code only**. There are no ready-to-run files here, and GitHub's
-> automatic "Source code (zip)" archives are the project, not the tool.
+> RRACF.exe itself is not built here — GitHub's automatic "Source code (zip)" archives are the
+> project, not the tool. Nexus carries the packaged, ready-to-run build.
 >
-> Nexus carries the packaged build, with `retoc` and `repak` already included.
+> The two third-party tools RRACF drives, `retoc` and `repak`, **are** included under `Resources/`,
+> so everything in the download can be inspected here.
 
 ---
 
@@ -119,7 +120,7 @@ The full write-up — including the dead ends and the evidence for each decision
 - A copy of the game, to read the vanilla camo assets from
 - Windows. The tool runs on .NET Framework 4.x, already present on Windows 10 and 11
 
-`retoc` and `repak` are bundled in the Nexus download and are **not** in this repository.
+`retoc` and `repak` are included under `Resources/`, unmodified from their upstream releases.
 
 ---
 
@@ -128,11 +129,24 @@ The full write-up — including the dead ends and the evidence for each decision
 Run `build.bat`. It uses the C# compiler that ships with Windows
 (`C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`) — no SDK or Visual Studio needed.
 
-Put the two tools next to the built exe as `Resources\retoc\retoc.exe` and
-`Resources\repak\repak.exe` (anywhere under the program's folder works):
+That produces `RRACF.exe`. To run it, the two tools it drives must be reachable — they are already
+in this repository at `Resources\retoc\retoc.exe` and `Resources\repak\repak.exe`, and RRACF finds
+them anywhere under its own folder.
 
-- [retoc](https://github.com/trumank/retoc) — Zen ⇄ legacy asset conversion. MIT.
-- [repak](https://github.com/trumank/repak) — `.pak` reading and writing. MIT / Apache-2.0.
+Both are unmodified copies of the official upstream releases, each with its own LICENSE file:
+
+- [retoc](https://github.com/trumank/retoc) by Truman Kilen and Archengius — converts assets between
+  the game's Zen format and the legacy format. MIT.
+- [repak](https://github.com/trumank/repak) by Truman Kilen and spuds — reads and writes `.pak`
+  archives. MIT / Apache-2.0.
+
+Each ships `oo2core_9_win64.dll`, the Oodle compression library Unreal Engine uses. The game
+installs the same library; the tools need it to read the game's compressed archives. It is a common
+false-positive trigger for antivirus scanners.
+
+RRACF itself makes no network connections. It reads the game's `.pak`/`.utoc` files, runs `retoc`
+and `repak` as child processes, and writes only into its own `Output` folder plus two small `.txt`
+files beside itself. No installer, no registry writes, no admin rights.
 
 ---
 

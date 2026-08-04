@@ -1,11 +1,9 @@
-# Build output - the tool is distributed on Nexus, not from here
+﻿# Build output - the tool is distributed on Nexus, not from here
 RRACF.exe
 *.pdb
 
 # Third-party tools (retoc, repak). MIT licensed and bundled in the Nexus
 # download with their LICENSE files; not tracked in this repo.
-retoc/
-repak/
 
 # Created at runtime
 Input/
