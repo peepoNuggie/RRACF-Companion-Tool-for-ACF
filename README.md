@@ -20,11 +20,11 @@ Point it at a mod, give it a name, pick a slot. It works out the rest.
 
 ## Status
 
-**v1.0** — feature complete.
+**v2.0** — writes ACF 2.0's config format.
 
 | | |
 |---|---|
-| Slots | 4 (camo IDs 61–64) |
+| Slots | 5 (camo IDs 61–65) |
 | Interface | window, plus a command line for scripting |
 | Install | unzip and run — no .NET SDK, no setup |
 | Mod patterns handled | both (see below) |
@@ -47,8 +47,42 @@ this works. The short version:
 The result is one folder in `Output` that drops straight into `Content\Paks\mods`, containing the
 generated slot files, an `ACF_Slot<n>.txt` you can edit in Notepad, and the original mod's own art.
 
+Everything you type can be saved and reloaded from the **File** menu — saves live in
+`Resources\Saves`. Folder paths are deliberately left out, so a save shared with someone else does
+not point at folders they do not have.
+
 There is also a command line — `RRACF.exe --help` — used for the batch testing behind the table
 above.
+
+### What goes in ACF_Slot&lt;n&gt;.txt
+
+RRACF writes the whole file in ACF's own format, comments included, so it can be edited in Notepad
+afterwards. Beyond the name it covers:
+
+- **Four description lines** — `PlainDesc`, `AbilityDescOrange`, `WarningDesc`, `SpecialDesc`, each
+  a different colour in game. A blank one is omitted rather than written empty, and the legacy
+  single `Description` key is never written.
+- **Abilities** — silent steps, steady aim, infinite suppressor, infinite ammo, and infinite ammo
+  restricted to chosen weapons or whole categories.
+- **Concealment** — `BaseCamo`, plus the 25-surface × 5-stance grid the game's own camos use.
+  They are alternatives: ACF **adds** them, so a grass value of 35 with `BaseCamo=30` gives 65.
+  RRACF warns before building if both are set.
+
+The camo-values drop-down offers the game's real grids, read out of the running game with ACF's
+`camotable` command: **Tiger Stripe** (ID 1), **Squares** (ID 7) and **Sneaking Suit** (ID 12).
+
+One rule the generator follows strictly: **no trailing comments on value lines.** ACF only ignores
+lines that *start* with `;` or `#`, so `INFAmmoFlag=0  ; set to 1` would read as enabled.
+
+### Slot 5 (camo ID 65)
+
+New in ACF 2.0, and different in two ways that RRACF surfaces on screen rather than letting you find
+out later:
+
+- **The name is capped at 15 characters.** A longer one is ignored outright, not truncated, and the
+  row falls back to "ACF Mod 5".
+- **Concealment values do not apply.** ACF reads them correctly and the game overrides them — slot 5
+  conceals as Tiger Stripe regardless. Slots 1–4 are unaffected.
 
 ---
 
@@ -97,7 +131,7 @@ The full write-up — including the dead ends and the evidence for each decision
 
 ## Known limitations
 
-- **Slots 61–64 only.** ACF's limit, not this tool's.
+- **Slots 61–65 only.** ACF's limit, not this tool's.
 - **Only camo mods can be converted.** Mods that replace Snake's body or head meshes apply to every
   camo at once, so there is nothing to confine to a slot. RRACF says so and lists what the mod
   actually replaces.

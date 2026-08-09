@@ -1,45 +1,203 @@
-; ACF slot metadata - slot 1 (camo ID 61)
-; Placed next to this mod's .pak by the mod author. File name must remain ACF_Slot61.txt 
-;Experiment with base camo as you can see its extremely easy to edit it and test out in game!
-Name=Rename me ACF Mod 1
-Description=Redescribe me ACF Mod 1
-BaseCamo=11
+; ==============================================================================
+;  ACF slot metadata - SLOT 1  (camo ID 61)
+; ==============================================================================
+;
+;  Put this file next to your .pak, inside your archive at:
+;      Content\Paks\mods\
+;
+;  The filename must stay ACF_Slot61.txt - that is how ACF knows which slot it
+;  describes. Use ACF_Slot62/63/64/65.txt for the other slots.
+;
+;  Lines starting with ; or # are ignored. Spaces around the = are fine.
+;  Delete any line you do not want and it falls back to the default.
+;
+;  To see exactly what ACF read from this file, use the console command:
+;      acfslots
+;
+;  It also names any line it could not parse. A typo reads as "absent", which
+;  otherwise looks identical to deliberately leaving something at 0 - so check
+;  acfslots after editing rather than assuming.
+;
+; Built for V2.0+
+; ------------------------------------------------------------------------------
 
-;This config file was built for v1.1
-;Below isn't currently supported but may come in a future update.
-SpecialEffectFlag=0
-SpecialEffectDescription=Silent Steps
+
+; --- Shown in the menus -------------------------------------------------------
+
+Name=Rename me ACF Mod 1
+PlainDesc=Redescribe me plain line, no colour
+AbilityDescOrange= Redescribe me or blank me Ability line, should be orange.
+WarningDesc=Redescribe me or blank me Warning line, this line will red.
+SpecialDesc=Redescribe me or blank me Special line, this line will be yellow.
+
+; The description is cosmetic. Writing "Never runs out of ammo" here does not
+; grant it - the abilities further down are what actually do things.
+
+
+; --- The simple option: one value, everywhere ---------------------------------
+;
+; BaseCamo applies whatever you are standing against. Positive hides you,
+; negative exposes you. 0 behaves like being Naked.
+;
+; This is NOT how the game itself works. No vanilla camo has a base value - all
+; of them sit at 0 here, and their whole strength comes from the per-terrain grid
+; further down. (Gold's -100 comes from game code, not this field. Black is the
+; single camo carrying a flat value, 25.)
+;
+; So: use BaseCamo if you just want "hides a bit better than bare skin" and would
+; rather not think about it. For a camo that feels like a real one, leave this at
+; 0 and fill in the grid instead.
+;
+; If you set both, they ADD - BaseCamo=30 with a grass value of 35 gives 65 in
+; grass, not 35. That is usually not what you want. It's recommended to pick one or
+; both
+;
+; Stored as a signed byte, so -128 to 127. Stay within -100 to 100.
+
+BaseCamo=0
+
+
+; --- Per-terrain values: how vanilla camos really work ------------------------
+;
+; This is what makes a camo feel like a real one. A vanilla camo is not one
+; number - it has a value for every surface AND every stance. That is why Water
+; works underwater, Snow works against white, and going prone in grass helps.
+;
+; Each line takes FIVE numbers, in this order:
+;
+;       stand , crouch , prone , wall-stand , wall-crouch
+;
+; With BaseCamo left at 0, these numbers ARE the percentages the game shows, so
+; they line up directly with any vanilla camo's. A surface you leave out gets
+; BaseCamo, which at 0 means it conceals like bare skin.
+;
+; You may also write a single number - CamoGrass=35 - and ACF uses it for all
+; five. That is simpler, but going prone will then gain you nothing on that
+; surface, which is not how vanilla camos behave.
+;
+; This is the REAL Tiger Stripe row, so you can see the shape of a jungle camo
+; and how much stance is normally worth. Copy these in with BaseCamo=0 and you
+; get Tiger Stripe's behaviour on those surfaces exactly:
+;
+;       CamoGrass      = 35, 50, 80, 55, 60      prone is worth +45 over standing
+;       CamoWoodGreen  = 30, 60, 80, 70, 75
+;       CamoSoilBrown  = 30, 60, 75, 65, 70
+;       CamoLeaf       =  0, 30, 50, 40, 45
+;       CamoWhite      = -10, 20, 40, 30, 35     poor, but prone still saves you
+;       CamoRoomBlack  = -10,  5, 20, 10, 15     worst case
+;
+; Note it is not all positives. A good camo is BAD somewhere - that is what makes
+; picking one interesting, and it is worth deciding where yours should struggle.
+;
+; Surfaces are chosen by COLOR and MATERIAL, not by area. Standing by a tree you
+; may be on SoilBrown, then ObjBrown pressed against the trunk, then Grass a step
+; later.
+
+;                 stand crouch prone  wall  wallcr
+
+; Outdoors
+CamoWater=          0,    0,    0,     0,     0
+CamoMoss=           0,    0,    0,     0,     0
+CamoBlack=          0,    0,    0,     0,     0
+CamoGray=           0,    0,    0,     0,     0
+CamoSoilBrown=      0,    0,    0,     0,     0
+CamoSoilBeige=      0,    0,    0,     0,     0
+CamoWood=           0,    0,    0,     0,     0
+CamoWoodGreen=      0,    0,    0,     0,     0
+CamoGrass=          0,    0,    0,     0,     0
+CamoLeaf=           0,    0,    0,     0,     0
+CamoWhite=          0,    0,    0,     0,     0
+
+; Objects and props you stand on/against
+CamoObjBrown=       0,    0,    0,     0,     0
+CamoObjRed=         0,    0,    0,     0,     0
+CamoObjOliveGreen=  0,    0,    0,     0,     0
+CamoObjBeige=       0,    0,    0,     0,     0
+
+; Indoors - split by the color of the surface, not by the room
+CamoRoomGray=       0,    0,    0,     0,     0
+CamoRoomWood=       0,    0,    0,     0,     0
+CamoRoomBlack=      0,    0,    0,     0,     0
+CamoRoomBrown=      0,    0,    0,     0,     0
+CamoRoomRed=        0,    0,    0,     0,     0
+CamoRoomOrange=     0,    0,    0,     0,     0
+CamoRoomOlive=      0,    0,    0,     0,     0
+CamoRoomBeige=      0,    0,    0,     0,     0
+CamoRoomWhite=      0,    0,    0,     0,     0
+CamoRoomBlue=       0,    0,    0,     0,     0
+
+
+; --- Abilities - these work ---------------------------------------------------
+;
+; All off by default. Each mirrors something a vanilla camo already does.
+;
+; IMPORTANT: do not put a comment after a value on the same line. Only lines that
+; START with ; or # are ignored, so a trailing comment becomes part of the value.
+
+; Infinite ammo. The two keys are INDEPENDENT - either one alone turns it on.
+;   INFAmmoFlag=1     every weapon costs no ammo    (like the Infinity Facepaint)
+;   INFAmmoWeapon=... only the weapons you list     (like Grenade Camo)
+
+INFAmmoFlag=0
+INFAmmoWeapon=
+
+; Names for INFAmmoWeapon, separated by commas. Case does not matter, and spaces,
+; hyphens and underscores are ignored - "AK-47", "ak 47" and "AK47" are the same.
+;
+;   Handguns    MK22            M1911A1  (M1911, 1911)   Single Action Army (SAA, Revolver)
+;   Shotguns    M37
+;   Snipers     SVD             Mosin Nagant (Mosin)
+;   SMGs        Scorpion
+;   Rifles      XM16E1 (M16)    AK-47 (AK, AK47)
+;   LMGs        M63
+;   Grenades    Grenade         WP Grenade (WP)          Stun Grenade (Stun)
+;               Smoke Grenade (Smoke)                    Chaff Grenade (Chaff)
+;   Misc        Cigarette Gas Spray (CGS, Gas, Cigarette)
+;               RPG-7 (RPG)     TNT      Claymore        Mousetraps
+;
+; A whole category can be named instead of listing its weapons:
+;
+;   Handguns  Shotguns  Snipers  SMGs  Rifles  LMGs  Grenades  Misc  Nonlethal
+;
+; Watch the S. "Grenade" is the frag grenade on its own; "Grenades" is the whole
+; category - frag, WP, stun, smoke and chaff. One letter, four extra weapons.
+;
+; Nonlethal = MK22, Mosin Nagant, Stun Grenade, Chaff Grenade, Cigarette Gas
+; Spray, Mousetraps.
+;
+;   INFAmmoWeapon=Nonlethal
+;   INFAmmoWeapon=Grenades,Mk22
+;   INFAmmoWeapon=Handguns,Snipers
+;
+; EZ Gun and the Patriot are deliberately absent - the game already gives those
+; infinite ammo. Melee and tools have no ammo to save. A name ACF cannot read is
+; reported by acfslots rather than silently narrowing your list to nothing.
+
+; Steady aim - no shaking while aiming down the sights, the way Animals camo
+; does. First person only, which is true of Animals itself.
+
+AnimalsSA=0
+
+; Suppressor never wears out. A suppressor has a use count, not a percentage, and
+; loses one per shot. This only PREVENTS the count dropping - picking one up or
+; repairing it still works normally.
+
+INFSuppressor=0
+
+; Footsteps make no noise. Real silence, not a volume reduction: the Sneaking
+; Suit, the White Tuxedo and Spirit share one check in the game and your slot is
+; added to it.
+
+SilentSteps=0
+
+
+; --- Not supported yet --------------------------------------------------------
+;
+; ACF does not read these. Listed so the file format does not have to change when
+; they arrive; leaving them in causes no harm.
+
 StandingMoveSpeedMultiplier=1
 CrouchMoveSpeedMultiplier=1
 CrawlMoveSpeedMultiplier=1
 HealthMultiplier=1
 LifeRecoveryMultiplier=1
-INFAmmoFlag=0
-INFAmmoEquipment=Grenade
-
-CamoWater=0
-CamoMoss=0
-CamoBlack=0
-CamoGray=0
-CamoSoilBrown=0
-CamoWood=0
-CamoGrass=0
-CamoLeaf=0
-CamoSoilBeige=0
-CamoWoodGreen=0
-CamoWhite=0
-
-CamoObjBrown=0
-CamoObjRed=0
-CamoObjBeige=0
-
-CamoRoomGray=0
-CamoRoomWood=0
-CamoRoomBlack=0
-CamoRoomBrown=0
-CamoRoomRed=0
-CamoRoomOrange=0
-CamoRoomOlive=0
-CamoRoomBeige=0
-CamoRoomWhite=0
-CamoRoomBlue=0

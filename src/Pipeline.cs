@@ -79,6 +79,14 @@ namespace Rracf
         /// Tiger Stripe 30, Gold -100. Stored by ACF as a signed byte, so -128..127.
         /// </summary>
         public int BaseCamoId;
+        /// <summary>Per-terrain values. All zero unless the author filled the grid in.</summary>
+        public TerrainGrid Grid = new TerrainGrid();
+        /// <summary>The four coloured description lines, and the ability flags.</summary>
+        public string PlainDesc = "";
+        public string AbilityDescOrange = "";
+        public string WarningDesc = "";
+        public string SpecialDesc = "";
+        public SlotAbilities Abilities = new SlotAbilities();
         /// <summary>True when the template is the mod's own Camouf asset rather than the vanilla one.</summary>
         public bool TemplateFromMod;
         /// <summary>The .utoc holding that asset. It is deliberately not shipped: keeping it would leave
@@ -92,7 +100,6 @@ namespace Rracf
         public List<string> DefinitionOnlyContainers = new List<string>();
         public string ModName = "";
         public string DisplayName = "";
-        public string Description = "";
     }
 
     internal class BuildResult
@@ -113,8 +120,16 @@ namespace Rracf
 
     internal static class Pipeline
     {
-        /// <summary>ACF's additional-uniform slots.</summary>
-        public static readonly int[] ValidSlots = { 61, 62, 63, 64 };
+        /// <summary>ACF's additional-uniform slots. 65 arrived in ACF 2.0.</summary>
+        public static readonly int[] ValidSlots = { 61, 62, 63, 64, 65 };
+
+        /// <summary>
+        /// Slot 65 borrows a menu row the game only ever labelled "UNLOCKED", and the buffer behind
+        /// that word holds 15 characters. A longer name is ignored outright, not truncated.
+        /// </summary>
+        public const int Slot65NameLimit = 15;
+
+        public static bool HasNameLimit(int slot) { return slot == 65; }
 
         private const string AssetSubPath = @"MGSDelta\Content\Maps\AssetCamouflage";
 
@@ -524,9 +539,21 @@ namespace Rracf
 
                 // 7. The metadata file ACF reads.
                 result.SlotTxtPath = Path.Combine(modFolder, "ACF_Slot" + o.Slot + ".txt");
-                File.WriteAllText(result.SlotTxtPath,
-                    SlotFile.Generate(o.Slot, o.BaseCamoId, o.DisplayName, o.Description));
-                log("  BaseCamo=" + o.BaseCamoId + " (concealment value, edit the .txt to tune it)");
+                var meta = new SlotMeta();
+                meta.Name = o.DisplayName;
+                meta.PlainDesc = o.PlainDesc;
+                meta.AbilityDescOrange = o.AbilityDescOrange;
+                meta.WarningDesc = o.WarningDesc;
+                meta.SpecialDesc = o.SpecialDesc;
+                meta.BaseCamo = o.BaseCamoId;
+                meta.Grid = o.Grid;
+                meta.Abilities = o.Abilities;
+                File.WriteAllText(result.SlotTxtPath, SlotFile.Generate(o.Slot, meta));
+
+                log("  BaseCamo=" + o.BaseCamoId +
+                    (o.Grid != null && !o.Grid.IsAllZero ? " plus per-terrain values" : ""));
+                if (o.Slot == 65 && (o.BaseCamoId != 0 || (o.Grid != null && !o.Grid.IsAllZero)))
+                    log("  NOTE: slot 5 ignores concealment values - the game overrides them with Tiger Stripe");
 
                 // 8. The replacer supplies the actual art, so it has to travel with the slot files.
                 log("Copying the replacer mod's own files...");

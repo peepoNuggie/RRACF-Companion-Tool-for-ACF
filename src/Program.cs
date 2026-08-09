@@ -133,7 +133,18 @@ namespace Rracf
             o.BaseCamoId = opts.ContainsKey("base") ? int.Parse(opts["base"]) : 0;
             o.ModName = Value(opts, "name", Pipeline.SuggestName(analysis.ChosenUtoc));
             o.DisplayName = Value(opts, "display", "");
-            o.Description = Value(opts, "desc", "");
+            // ACF 2.0 replaced the single Description with four coloured lines. --desc maps to the
+            // plain one; the legacy key is deliberately never written.
+            o.PlainDesc = Value(opts, "desc", "");
+            o.AbilityDescOrange = Value(opts, "ability-desc", "");
+            o.WarningDesc = Value(opts, "warning-desc", "");
+            o.SpecialDesc = Value(opts, "special-desc", "");
+            o.Abilities = new SlotAbilities();
+            o.Abilities.InfAmmoAll = Flag(opts, "inf-ammo");
+            o.Abilities.SteadyAim = Flag(opts, "steady-aim");
+            o.Abilities.InfSuppressor = Flag(opts, "inf-suppressor");
+            o.Abilities.SilentSteps = Flag(opts, "silent-steps");
+            o.Abilities.InfAmmoWeapons = Value(opts, "ammo-weapons", "");
 
             BuildResult r = Pipeline.Build(tools, o, log);
             Console.WriteLine();
@@ -155,6 +166,14 @@ namespace Rracf
         {
             if (!o.ContainsKey(key)) throw new ArgumentException("Missing required option --" + key);
             return o[key];
+        }
+
+        /// <summary>Reads a switch the way ACF reads its flags - any digit 1-9 means on.</summary>
+        private static bool Flag(Dictionary<string, string> o, string key)
+        {
+            if (!o.ContainsKey(key)) return false;
+            foreach (char c in o[key]) { if (c >= '1' && c <= '9') return true; }
+            return false;
         }
 
         private static string Value(Dictionary<string, string> o, string key, string fallback)
@@ -179,7 +198,15 @@ namespace Rracf
             Console.WriteLine("                      Naked 0, Olive Drab 10, Tiger Stripe 30, Gold -100");
             Console.WriteLine("    --name <text>     mod name used in ACF_<name><slot>_P");
             Console.WriteLine("    --display <text>  in-game name written into ACF_Slot<slot>.txt");
-            Console.WriteLine("    --desc <text>     in-game description");
+            Console.WriteLine("    --desc <text>         PlainDesc line");
+            Console.WriteLine("    --ability-desc <t>    AbilityDescOrange line (orange)");
+            Console.WriteLine("    --warning-desc <t>    WarningDesc line (red)");
+            Console.WriteLine("    --special-desc <t>    SpecialDesc line (yellow)");
+            Console.WriteLine("    --inf-ammo 1          infinite ammo on every weapon");
+            Console.WriteLine("    --ammo-weapons <list> comma-separated weapons/categories, e.g. Handguns,Grenades");
+            Console.WriteLine("    --steady-aim 1        no shake while aiming");
+            Console.WriteLine("    --inf-suppressor 1    suppressor never wears out");
+            Console.WriteLine("    --silent-steps 1      footsteps make no noise");
             Console.WriteLine("    --paks <dir>      the game's Content\\Paks folder");
             Console.WriteLine("    --out <dir>       output folder");
             Console.WriteLine("    --rebuild-map 1   re-derive the camo list from the game");

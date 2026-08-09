@@ -1,12 +1,12 @@
 ; ==============================================================================
-;  ACF slot metadata - SLOT 4  (camo ID 64)
+;  ACF slot metadata - SLOT 5  (camo ID 65)
 ; ==============================================================================
 ;
 ;  Put this file next to your .pak, inside your archive at:
 ;      Content\Paks\mods\
 ;
-;  The filename must stay ACF_Slot64.txt - that is how ACF knows which slot it
-;  describes. Use ACF_Slot61/62/63/65.txt for the other slots.
+;  The filename must stay ACF_Slot65.txt - that is how ACF knows which slot it
+;  describes. Use ACF_Slot61/62/63/64.txt for the other slots.
 ;
 ;  Lines starting with ; or # are ignored. Spaces around the = are fine.
 ;  Delete any line you do not want and it falls back to the default.
@@ -20,11 +20,31 @@
 ;
 ; Built for V2.0+
 ; ------------------------------------------------------------------------------
+;
+;  !! TWO DIFFERENCES ON THIS SLOT - READ BEFORE YOU BUILD AROUND IT !!
+;
+;  1. CONCEALMENT VALUES DO NOT WORK HERE. ACF reads BaseCamo and the per-terrain
+;     grid from this file correctly, and the game overrides them - slot 5
+;     conceals as Tiger Stripe whatever you write. Measured: a grid of 31/41/51
+;     on brown soil returned Tiger Stripe's 30/60/75, and BaseCamo contributed
+;     nothing. Slots 1 to 4 are unaffected and honour both. Cause not yet known.
+;
+;     If concealment matters to your mod, target slots 1 to 4 instead.
+;
+;  2. NAME IS LIMITED TO 15 CHARACTERS. This slot borrows a menu row the game
+;     only ever labelled "UNLOCKED", and the buffer behind that word holds 15 and
+;     no more. A longer Name= is ignored rather than cut short, and the row falls
+;     back to "ACF Mod 5". Slots 1 to 4 have no such limit.
+;
+;  EVERYTHING ELSE WORKS exactly as on the other slots - description, colours,
+;  thumbnail, and every ability below. Those read the worn-uniform byte directly
+;  instead of going through the concealment table, which is why they are fine.
+; ------------------------------------------------------------------------------
 
 
 ; --- Shown in the menus -------------------------------------------------------
 
-Name=Rename me ACF Mod 4
+Name=Rename me ACF 5
 PlainDesc=Redescribe me plain line, no colour
 AbilityDescOrange= Redescribe me or blank me Ability line, should be orange.
 WarningDesc=Redescribe me or blank me Warning line, this line will red.

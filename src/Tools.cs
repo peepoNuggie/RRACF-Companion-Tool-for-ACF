@@ -9,7 +9,7 @@ namespace Rracf
     internal static class AppInfo
     {
         /// <summary>The single place the version is written. Title bar, log and --version all read it.</summary>
-        public const string Version = "1.0";
+        public const string Version = "2.0";
     }
 
     /// <summary>
@@ -23,13 +23,14 @@ namespace Rracf
     {
         private static readonly string[] SkipFolders = { "Input", "Output" };
 
-        /// <summary>Every folder under the program, nearest first, excluding Input and Output.</summary>
+        /// <summary>Every folder under the program, shallowest first, excluding Input and Output.</summary>
         public static List<string> SearchFolders(string appFolder)
         {
             var folders = new List<string>();
             folders.Add(appFolder);
             try
             {
+                var found = new List<string>();
                 foreach (string dir in Directory.GetDirectories(appFolder, "*", SearchOption.AllDirectories))
                 {
                     string rel = dir.Substring(appFolder.Length).TrimStart('\\', '/');
@@ -39,11 +40,28 @@ namespace Rracf
                     {
                         if (string.Equals(top, s, StringComparison.OrdinalIgnoreCase)) { skip = true; break; }
                     }
-                    if (!skip) folders.Add(dir);
+                    if (!skip) found.Add(dir);
                 }
+
+                // Shallowest wins, so Resources\retoc beats a stray copy buried further down - for
+                // example the packaged Release folder sitting inside a development checkout.
+                found.Sort(delegate(string a, string b)
+                {
+                    int da = Depth(a), db = Depth(b);
+                    if (da != db) return da.CompareTo(db);
+                    return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+                });
+                folders.AddRange(found);
             }
             catch (Exception) { }
             return folders;
+        }
+
+        private static int Depth(string path)
+        {
+            int n = 0;
+            foreach (char c in path) { if (c == '\\' || c == '/') n++; }
+            return n;
         }
 
         /// <summary>The first matching file anywhere under the program folder, or "".</summary>

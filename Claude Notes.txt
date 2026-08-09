@@ -1,0 +1,256 @@
+RRACF v2.0 - bring the generated ACF_Slot<ID>.txt up to the ACF 2.0 format
+================================================================================
+
+ACF 2.0 has shipped and the config file format changed. RRACF still writes the
+1.1-era format, so files it generates today are partly ignored by ACF and one key
+is read by nothing at all. This is the catch-up work, plus the UI to drive it.
+
+AUTHORITATIVE REFERENCE - do not guess any key name, read these:
+    https://github.com/peepoNuggie/ACF-Additive-Camo-Framework-MGS-UE4SS
+      docs/modder_templates/ACF_Slot61.txt   (and 62, 63, 64, 65)
+      docs/MODDERS.txt
+
+The five templates are the exact format ACF parses, documented line by line.
+ACF_Slot65.txt has an extra caveat block the others don't. If anything below
+disagrees with those files, the files win.
+
+The generator lives in src/SlotFile.cs.
+
+
+================================================================================
+1. BUG - FIX THIS FIRST. RRACF writes a key that does not exist.
+================================================================================
+
+src/SlotFile.cs line 141:
+
+    sb.AppendLine("INFAmmoEquipment=Grenade");
+
+There is no INFAmmoEquipment key in ACF. There never was. The real key is
+INFAmmoWeapon. Every config RRACF has ever generated has infinite-ammo silently
+switched off, and nothing warned anybody, because ACF reports an unrecognised
+VALUE but silently ignores an unrecognised KEY.
+
+    INFAmmoEquipment=   ->   INFAmmoWeapon=
+
+Also delete lines 133-134. Both keys were removed from the format - they
+described nothing real and ACF never read them:
+
+    sb.AppendLine("SpecialEffectFlag=0");
+    sb.AppendLine("SpecialEffectDescription=Silent Steps");
+
+While you are in there, check for HornetSA, HornetStripeSA and SEINFAmmoFlag
+anywhere in the project. All three are dead.
+
+
+================================================================================
+2. THE COMPLETE v2.0 KEY LIST
+================================================================================
+
+These are every key ACF reads, verified against dllmain.cpp. Anything not on this
+list is ignored.
+
+IDENTITY
+    Name                    shown in both menus. Falls back to "ACF Mod 1".."5".
+                            SLOT 65 ONLY: hard limit of 15 characters. A longer
+                            name is ignored outright, not truncated, and the row
+                            falls back to "ACF Mod 5". Slots 61-64 have no limit.
+                            RRACF should warn at 15 chars when slot 65 is picked.
+
+DESCRIPTION - four keys, one per colour. ACF joins whatever is present with
+newlines, in this order, and wraps each in the game's own rich-text style.
+    PlainDesc               plain text
+    AbilityDescOrange       orange - vanilla uses this for abilities
+    WarningDesc             red    - vanilla uses this for warnings
+    SpecialDesc             yellow - vanilla uses this for restricted items
+    Description             LEGACY single-line key. Still read, but only when all
+                            four above are absent. Do not write it any more.
+
+CONCEALMENT
+    BaseCamo                one flat value applied everywhere. Signed byte,
+                            -128..127, keep to -100..100. Default 0.
+                            Note: NO vanilla camo uses a flat value except Black.
+                            They all sit at 0 and get their strength from the grid.
+                            BaseCamo and the grid ADD, they do not override.
+
+    Camo<Surface>           25 keys, listed in section 5. Each takes five numbers:
+                                stand, crouch, prone, wall-stand, wall-crouch
+                            A single number is also accepted and fills all five,
+                            but then going prone gains nothing on that surface.
+                            Each value is a signed byte; out of range rejects the
+                            whole line and ACF logs it.
+
+ABILITIES - all default off. Write 0 for off and 1 for on. Omitting the line is
+identical to 0, so either is fine.
+    INFAmmoFlag             1 = infinite ammo on every weapon
+    INFAmmoWeapon           comma-separated weapon and/or category names, see
+                            section 4. INDEPENDENT of INFAmmoFlag - either alone
+                            turns infinite ammo on.
+    AnimalsSA               1 = no hand shake while aiming (first person only)
+    INFSuppressor           1 = suppressor durability never drops
+    SilentSteps             1 = footsteps make no noise
+
+NOT IMPLEMENTED - keep writing them so the format does not change later. ACF
+ignores them today.
+    StandingMoveSpeedMultiplier
+    CrouchMoveSpeedMultiplier
+    CrawlMoveSpeedMultiplier
+    HealthMultiplier
+    LifeRecoveryMultiplier
+
+
+================================================================================
+3. HARD RULES THE GENERATOR MUST FOLLOW
+================================================================================
+
+NO TRAILING COMMENTS ON VALUE LINES. This is the big one. Only lines that START
+with ; or # are ignored. A comment after a value becomes part of the value - and
+because the ability flags scan for any digit 1-9, this line turns the ability ON:
+
+    INFAmmoFlag=0    ; set to 1 to enable        <-- READS AS ENABLED
+
+An earlier draft of the ACF templates shipped exactly this mistake on every
+ability. Put explanations on their own line above the key, never after it.
+
+Other rules:
+  * Lines starting with ; or # are comments. Blank lines are fine.
+  * Spaces around the = are fine.
+  * The file must be named ACF_Slot<ID>.txt, ID being 61 to 65. That filename is
+    how ACF knows which slot it describes.
+  * It goes at Content\Paks\mods\ inside the archive. ACF searches recursively
+    under Content\Paks, so a subfolder per mod works and is preferred.
+  * If two files claim the same slot, ACF warns in the log and uses the first.
+
+
+================================================================================
+4. UI WORK
+================================================================================
+
+4a. SAVE / LOAD Addition!
+Add a File menu at the top. Save and load every field EXCEPT input and output
+paths. Save files go in Resources/Saves, and the user should be able to find them
+there without being told where to look.
+
+4b. SLOT 5 IS NOW AVAILABLE
+ACF slot 5 (camo ID 65) works. Add it wherever slots 1-4 are currently offered.
+Two things RRACF should surface when the user picks it:
+  * Name is capped at 15 characters (see section 2).
+  * ITS CONCEALMENT VALUES DO NOT APPLY. ACF reads BaseCamo and the grid from the
+    file correctly and the game overrides them - slot 5 conceals as Tiger Stripe
+    whatever is written. Slots 1-4 are unaffected. Known ACF issue, being worked
+    on. Everything else on slot 5 works normally. Worth a visible note next to the
+    camo grid when slot 5 is selected, so nobody spends an hour tuning a grid that
+    cannot take effect.
+
+4c. DESCRIPTION - FOUR FIELDS INSTEAD OF ONE
+The existing Desc field becomes PlainDesc. Add three more: AbilityDescOrange,
+WarningDesc, SpecialDesc. Show the colour each one produces in the label or as a
+swatch, since that is the only reason to pick one over another.
+Any field left blank is omitted from the file entirely - do not write an empty key.
+
+4d. ABILITY CHECKBOXES
+    Hand shake (AnimalsSA)          checkbox
+    Silent Steps (SilentSteps)      checkbox
+    Inf Suppressor (INFSuppressor)  checkbox
+    Inf Ammo (INFAmmoFlag)          checkbox
+Each writes 0 when unchecked and 1 when checked.
+
+4e. INF AMMO - SPECIFIC WEAPONS
+A picker where the user can tick whole categories AND/OR individual weapons, in
+any combination. Ticking a category should be written as the category name, not
+expanded into its members - both work, but the category name is shorter and
+readable. Output is one comma-separated line:
+
+    INFAmmoWeapon=Handguns,Snipers,Claymore
+
+If nothing is ticked, write the key with an empty value or omit it.
+
+
+================================================================================
+5. WEAPON AND CATEGORY NAMES
+================================================================================
+
+Case does not matter. Spaces, hyphens, underscores, dots and tabs are all
+stripped, so "AK-47", "ak 47" and "AK47" are the same name. Shorthands in
+brackets are accepted spellings of the same weapon.
+
+    Handguns    MK22          M1911A1 (M1911, 1911)    Single Action Army (SAA, Revolver)
+    Shotguns    M37
+    Snipers     SVD           Mosin Nagant (Mosin)
+    SMGs        Scorpion
+    Rifles      XM16E1 (M16)  AK-47 (AK, AK47)
+    LMGs        M63
+    Grenades    Grenade       WP Grenade (WP)          Stun Grenade (Stun)
+                Smoke Grenade (Smoke)                  Chaff Grenade (Chaff)
+    Misc        Cigarette Gas Spray (CGS, Gas, Cigarette)
+                RPG-7 (RPG)   TNT    Claymore          Mousetraps
+
+Category names accepted as single words:
+    Handguns  Shotguns  Snipers  SMGs  Rifles  LMGs  Grenades  Misc  Nonlethal
+
+    Nonlethal = MK22, Mosin Nagant, Stun Grenade, Chaff Grenade,
+                Cigarette Gas Spray, Mousetraps
+
+WATCH THE S. "Grenade" is the frag grenade on its own. "Grenades" is the whole
+category - frag, WP, stun, smoke and chaff. One letter, four extra weapons. If
+the UI has a "Grenades" category checkbox and a "Grenade" weapon checkbox they
+must produce different output.
+
+EZ Gun and the Patriot are deliberately absent - the game already gives those
+infinite ammo. Melee weapons and tools have no ammo to spend.
+
+
+================================================================================
+6. CAMO GRID KEYS, AND A NEW TEMPLATE
+================================================================================
+
+The 25 keys, in the game's own surface order:
+
+    Outdoors    CamoWater  CamoMoss  CamoBlack  CamoGray  CamoSoilBrown
+                CamoWood  CamoGrass  CamoLeaf  CamoSoilBeige  CamoWoodGreen
+                CamoWhite
+    Objects     CamoObjBrown  CamoObjRed  CamoObjOliveGreen  CamoObjBeige
+    Indoors     CamoRoomGray  CamoRoomWood  CamoRoomBlack  CamoRoomBrown
+                CamoRoomRed  CamoRoomOrange  CamoRoomOlive  CamoRoomBeige
+                CamoRoomWhite  CamoRoomBlue
+
+There are 27 surfaces in the game but only 25 are settable. NO_CAMOUFLAGE and
+ROOM_NO_CAMOUFLAGE are the engine's "nothing matches here" defaults and ACF
+deliberately exposes no key for them - ignore rows 0 and 1 in any camotable dump.
+
+RRACF already ships a Tiger Stripe template. Add SQUARES (camo ID 7) as a second
+one. Converted from an in-game camotable dump into config form:
+
+    CamoWater=          -5, 25, 45, 25, 30
+    CamoMoss=          -15, 15, 35, 25, 30
+    CamoBlack=          15, 45, 65, 55, 60
+    CamoGray=          -20, 10, 30, 20, 25
+    CamoSoilBrown=     -10, 20, 40, 30, 35
+    CamoWood=           20, 60, 80, 70, 75
+    CamoObjBrown=       -5, 25, 45, 35, 40
+    CamoObjRed=         30, 60, 80, 70, 75
+    CamoObjOliveGreen=  -5, 25, 45, 35, 40
+    CamoGrass=         -20, 40, 65, 55, 60
+    CamoLeaf=            5, 35, 55, 45, 50
+    CamoSoilBeige=       0, 30, 50, 40, 45
+    CamoObjBeige=       -5, 25, 45, 35, 40
+    CamoWoodGreen=     -20, 10, 30, 20, 25
+    CamoWhite=         -30,  0, 20, 10, 15
+    CamoRoomGray=      -20, -5, 10,  0,  5
+    CamoRoomWood=       15, 30, 45, 35, 40
+    CamoRoomBlack=      -5, 10, 25, 15, 20
+    CamoRoomBrown=      20, 35, 50, 40, 45
+    CamoRoomRed=        25, 40, 55, 45, 50
+    CamoRoomOrange=     30, 45, 60, 50, 55
+    CamoRoomOlive=     -15,  0, 15,  5, 10
+    CamoRoomBeige=     -20, -5, 10,  0,  5
+    CamoRoomWhite=     -20, -5, 10,  0,  5
+    CamoRoomBlue=      -15,  0, 15,  5, 10
+
+Use BaseCamo=0 with this. These numbers ARE the percentages the game shows.
+
+
+================================================================================
+7. VERSION
+================================================================================
+
+Update RRACF to 2.0, wherever the version string lives.

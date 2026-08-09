@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 rem Builds RRACF.exe using the C# compiler that ships with Windows - no SDK needed.
 setlocal
 
@@ -24,6 +24,9 @@ pushd "%~dp0"
     src\CamoMap.cs ^
     src\Manifest.cs ^
     src\SlotFile.cs ^
+    src\Abilities.cs ^
+    src\SaveLoad.cs ^
+    src\Terrain.cs ^
     src\Settings.cs ^
     src\Tools.cs
 

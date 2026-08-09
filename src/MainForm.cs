@@ -9,13 +9,21 @@ namespace Rracf
 {
     internal class MainForm : Form
     {
-        private TextBox _modBox, _paksBox, _outBox, _displayBox, _descBox, _logBox, _baseBox;
+        private TextBox _modBox, _paksBox, _outBox, _displayBox, _logBox, _baseBox;
+        private TextBox _plainDesc, _abilityDesc, _warningDesc, _specialDesc;
         private ComboBox _slotCombo;
         private Panel _camoPanel;
-        private Label _baseHint;
+        private Label _baseHint, _gridHint, _nameWarnLabel, _slot65CamoNote;
         private CheckBox _openWhenDone;
+        private CheckBox _cbInfAmmoAll, _cbSteadyAim, _cbInfSuppressor, _cbSilentSteps;
+        private CheckedListBox _ammoList;
+        private Label _ammoPreview;
+        private TabControl _tabs;
+        private DataGridView _grid;
+        private ComboBox _templateCombo;
         private Button _analyseButton, _buildButton, _rebuildMapButton;
         private Label _previewLabel, _statusLabel;
+        private string _lastSavePath = "";
 
         private Tools _tools;
         private List<CamoEntry> _camoMap;
@@ -36,8 +44,8 @@ namespace Rracf
 
             Text = "RRACF " + AppInfo.Version + " - Replacer to ACF Slot Converter";
             Font = new Font("Segoe UI", 9f);
-            ClientSize = new Size(760, 700);
-            MinimumSize = new Size(700, 640);
+            ClientSize = new Size(1010, 920);
+            MinimumSize = new Size(900, 740);
             StartPosition = FormStartPosition.CenterScreen;
 
             BuildLayout();
@@ -78,9 +86,60 @@ namespace Rracf
             return b;
         }
 
+        /// <summary>Saves live beside the program so they can be found without being told where.</summary>
+        private string SavesFolder
+        {
+            get
+            {
+                string resources = Path.Combine(_appFolder, "Resources");
+                string root = Directory.Exists(resources) ? resources : _appFolder;
+                return Path.Combine(root, "Saves");
+            }
+        }
+
+        private void BuildMenu()
+        {
+            var menu = new MenuStrip();
+            var file = new ToolStripMenuItem("&File");
+
+            var save = new ToolStripMenuItem("&Save slot settings...");
+            save.ShortcutKeys = Keys.Control | Keys.S;
+            save.Click += OnSaveProject;
+            file.DropDownItems.Add(save);
+
+            var load = new ToolStripMenuItem("&Load slot settings...");
+            load.ShortcutKeys = Keys.Control | Keys.O;
+            load.Click += OnLoadProject;
+            file.DropDownItems.Add(load);
+
+            file.DropDownItems.Add(new ToolStripSeparator());
+
+            var open = new ToolStripMenuItem("Open sa&ves folder");
+            open.Click += delegate
+            {
+                try
+                {
+                    Directory.CreateDirectory(SavesFolder);
+                    System.Diagnostics.Process.Start("explorer.exe", Io.Quote(SavesFolder));
+                }
+                catch (Exception ex) { ShowError("Could not open " + SavesFolder + "\r\n\r\n" + ex.Message); }
+            };
+            file.DropDownItems.Add(open);
+
+            file.DropDownItems.Add(new ToolStripSeparator());
+            var quit = new ToolStripMenuItem("E&xit");
+            quit.Click += delegate { Close(); };
+            file.DropDownItems.Add(quit);
+
+            menu.Items.Add(file);
+            MainMenuStrip = menu;
+            Controls.Add(menu);
+        }
+
         private void BuildLayout()
         {
-            int y = 14;
+            BuildMenu();
+            int y = 34;
 
             AddLabel("Replacer mod folder", y);
             _modBox = AddField(y);
@@ -134,23 +193,6 @@ namespace Rracf
             ShowCamoPlaceholder("press \"1. Analyse mod\" and this fills in by itself");
             y += 76;
 
-            // Base camo is deliberately never auto-filled: it is a concealment value, not a camo ID,
-            // so nothing about the detected camo is a sensible guess for it.
-            AddLabel("Base camo", y);
-            _baseBox = new TextBox();
-            _baseBox.Location = new Point(FieldX, y);
-            _baseBox.Size = new Size(60, 23);
-            _baseBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            Controls.Add(_baseBox);
-            _baseHint = new Label();
-            _baseHint.Text = "written as BaseCamo= in the .txt - safe to experiment with";
-            _baseHint.Location = new Point(FieldX + 70, y + 3);
-            _baseHint.Size = new Size(570, 20);
-            _baseHint.ForeColor = Color.DimGray;
-            _baseHint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            Controls.Add(_baseHint);
-            y += RowH;
-
             AddLabel("ACF slot", y);
             _slotCombo = new ComboBox();
             _slotCombo.Location = new Point(FieldX, y);
@@ -159,7 +201,7 @@ namespace Rracf
             foreach (int s in Pipeline.ValidSlots)
                 _slotCombo.Items.Add("Slot " + (s - 60) + "  (camo ID " + s + ")");
             _slotCombo.SelectedIndex = 0;
-            _slotCombo.SelectedIndexChanged += delegate { UpdatePreview(); };
+            _slotCombo.SelectedIndexChanged += delegate { UpdatePreview(); UpdateSlotWarnings(); };
             Controls.Add(_slotCombo);
             y += RowH;
 
@@ -167,18 +209,27 @@ namespace Rracf
             _displayBox = AddField(y);
             _displayBox.Size = new Size(200, 23);
             _displayBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            _displayBox.TextChanged += delegate { UpdatePreview(); };
+            _displayBox.TextChanged += delegate { UpdatePreview(); UpdateSlotWarnings(); };
             _previewLabel = new Label();
             _previewLabel.Location = new Point(FieldX + 210, y + 3);
-            _previewLabel.Size = new Size(430, 20);
+            _previewLabel.AutoSize = true;
             _previewLabel.ForeColor = Color.DimGray;
-            _previewLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _previewLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             Controls.Add(_previewLabel);
-            y += RowH;
+            y += RowH - 4;
 
-            AddLabel("Description", y);
-            _descBox = AddField(y);
-            y += RowH + 8;
+            // Slot 5's name buffer holds 15 characters and a longer one is ignored outright, so the
+            // warning has to be visible while typing rather than at build time.
+            _nameWarnLabel = new Label();
+            _nameWarnLabel.Location = new Point(FieldX, y);
+            _nameWarnLabel.AutoSize = true;
+            _nameWarnLabel.ForeColor = Color.Firebrick;
+            _nameWarnLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            Controls.Add(_nameWarnLabel);
+            y += 22;
+
+            BuildTabs(y);
+            y += TabsHeight + 8;
 
             _buildButton = new Button();
             _buildButton.Text = "2.  Build ACF slot mod";
@@ -296,6 +347,433 @@ namespace Rracf
                 : "-> " + stem + "\\" + stem + "_P.pak / .ucas / .utoc";
         }
 
+        private const int TabsHeight = 330;
+
+        /// <summary>
+        /// Description, camouflage and abilities each get a tab. ACF 2.0 added enough fields that a
+        /// single column would push the log off the screen; the identity rows and the Build button
+        /// stay outside the tabs so the flow is still analyse, name, build.
+        /// </summary>
+        private void BuildTabs(int y)
+        {
+            _tabs = new TabControl();
+            _tabs.Location = new Point(LabelX, y);
+            _tabs.Size = new Size(ClientSize.Width - 24, TabsHeight);
+            _tabs.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            Controls.Add(_tabs);
+
+            _tabs.TabPages.Add(BuildDescriptionTab());
+            _tabs.TabPages.Add(BuildCamouflageTab());
+            _tabs.TabPages.Add(BuildAbilitiesTab());
+        }
+
+        private static Label PageLabel(TabPage page, string text, int x, int yy, Color colour)
+        {
+            var l = new Label();
+            l.Text = text;
+            l.Location = new Point(x, yy + 3);
+            l.AutoSize = true;
+            l.ForeColor = colour;
+            page.Controls.Add(l);
+            return l;
+        }
+
+        private TabPage BuildDescriptionTab()
+        {
+            var page = new TabPage("Description");
+            page.BackColor = SystemColors.Control;
+            int yy = 14;
+
+            PageLabel(page, "Each line is optional. Blank ones are left out of the file entirely.",
+                12, yy, Color.DimGray);
+            yy += 26;
+
+            _plainDesc = AddPageField(page, "Plain", yy, Color.Black, "PlainDesc");
+            yy += RowH;
+            _abilityDesc = AddPageField(page, "Ability", yy, Color.DarkOrange, "AbilityDescOrange");
+            yy += RowH;
+            _warningDesc = AddPageField(page, "Warning", yy, Color.Firebrick, "WarningDesc");
+            yy += RowH;
+            _specialDesc = AddPageField(page, "Special", yy, Color.Goldenrod, "SpecialDesc");
+            yy += RowH + 10;
+
+            PageLabel(page, "The colours above are how each line appears in game. ACF joins whatever is " +
+                            "present, in this order.", 12, yy, Color.DimGray);
+            yy += 22;
+            PageLabel(page, "Description is cosmetic - writing \"Never runs out of ammo\" here does not grant " +
+                            "it. Use the Abilities tab.", 12, yy, Color.DimGray);
+            return page;
+        }
+
+        /// <summary>A description row: coloured label showing the in-game colour, then the field.</summary>
+        private TextBox AddPageField(TabPage page, string label, int yy, Color colour, string key)
+        {
+            var l = PageLabel(page, label, 12, yy, colour);
+            l.Font = new Font(Font, FontStyle.Bold);
+
+            var swatch = new Panel();
+            swatch.BackColor = colour;
+            swatch.Location = new Point(80, yy + 4);
+            swatch.Size = new Size(14, 14);
+            swatch.BorderStyle = BorderStyle.FixedSingle;
+            page.Controls.Add(swatch);
+
+            var box = new TextBox();
+            box.Location = new Point(104, yy);
+            box.Size = new Size(848, 23);
+            box.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            box.Tag = key;
+            page.Controls.Add(box);
+            return box;
+        }
+
+        private TabPage BuildCamouflageTab()
+        {
+            var page = new TabPage("Camouflage");
+            page.BackColor = SystemColors.Control;
+            int yy = 12;
+
+            // Base camo is deliberately never auto-filled: it is a concealment value, not a camo ID,
+            // so nothing about the detected camo is a sensible guess for it.
+            PageLabel(page, "Base camo", 12, yy, SystemColors.ControlText);
+            _baseBox = new TextBox();
+            _baseBox.Location = new Point(90, yy);
+            _baseBox.Size = new Size(60, 23);
+            page.Controls.Add(_baseBox);
+            _baseHint = PageLabel(page,
+                "Written as BaseCamo= in the .txt - not recommended to use for vanilla-like camo's, " +
+                "instead use per-terrain values.", 160, yy, Color.DimGray);
+            yy += RowH;
+
+            PageLabel(page, "Camo values", 12, yy, SystemColors.ControlText);
+            _templateCombo = new ComboBox();
+            _templateCombo.Location = new Point(90, yy);
+            _templateCombo.Size = new Size(240, 23);
+            _templateCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            foreach (GridTemplate t in GridTemplates.All()) _templateCombo.Items.Add(t);
+            _templateCombo.SelectedIndex = 0;
+            _templateCombo.SelectedIndexChanged += delegate { ApplyTemplate(); };
+            page.Controls.Add(_templateCombo);
+            _gridHint = PageLabel(page,
+                "If you're using per-terrain values, recommend BaseCamo=0 for a more vanilla-like " +
+                "experience", 340, yy, Color.DimGray);
+            yy += RowH;
+
+            // Only shown when slot 5 is selected - see Pipeline.HasNameLimit's neighbours.
+            _slot65CamoNote = PageLabel(page, "", 12, yy, Color.Firebrick);
+            _slot65CamoNote.Visible = false;
+            yy += 22;
+
+            _grid = new DataGridView();
+            _grid.Location = new Point(12, yy);
+            _grid.Size = new Size(940, TabsHeight - yy - 34);
+            _grid.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            _grid.AllowUserToAddRows = false;
+            _grid.AllowUserToDeleteRows = false;
+            _grid.AllowUserToResizeRows = false;
+            _grid.RowHeadersVisible = false;
+            _grid.BackgroundColor = Color.White;
+            _grid.EditMode = DataGridViewEditMode.EditOnEnter;
+            _grid.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            BuildGridColumns();
+            FillGridRows();
+            page.Controls.Add(_grid);
+            return page;
+        }
+
+        private TabPage BuildAbilitiesTab()
+        {
+            var page = new TabPage("Abilities");
+            page.BackColor = SystemColors.Control;
+            int yy = 12;
+
+            PageLabel(page, "All off by default. Each mirrors something a vanilla camo already does.",
+                12, yy, Color.DimGray);
+            yy += 26;
+
+            _cbSteadyAim = AddPageCheck(page, "Steady aim  -  no shake while aiming (first person)", yy);
+            yy += 24;
+            _cbSilentSteps = AddPageCheck(page, "Silent steps  -  footsteps make no noise", yy);
+            yy += 24;
+            _cbInfSuppressor = AddPageCheck(page, "Infinite suppressor  -  durability never drops", yy);
+            yy += 24;
+            _cbInfAmmoAll = AddPageCheck(page, "Infinite ammo  -  EVERY weapon costs no ammo", yy);
+            _cbInfAmmoAll.CheckedChanged += delegate { UpdateAmmoPreview(); };
+            yy += 30;
+
+            PageLabel(page, "Infinite ammo for specific weapons only  -  independent of the box above; " +
+                            "either alone turns it on.", 12, yy, Color.DimGray);
+            yy += 20;
+
+            // Above the list rather than below it: anchored to the bottom it ends up clipped by the
+            // tab edge, and the exact line being written is worth seeing.
+            _ammoPreview = new Label();
+            _ammoPreview.Location = new Point(12, yy);
+            _ammoPreview.AutoSize = false;
+            _ammoPreview.Size = new Size(940, 18);
+            _ammoPreview.ForeColor = Color.DarkSlateBlue;
+            _ammoPreview.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            page.Controls.Add(_ammoPreview);
+            yy += 22;
+
+            _ammoList = new CheckedListBox();
+            _ammoList.Location = new Point(12, yy);
+            _ammoList.Size = new Size(940, TabsHeight - yy - 34);
+            _ammoList.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            _ammoList.CheckOnClick = true;
+            _ammoList.IntegralHeight = false;
+            _ammoList.ColumnWidth = 300;
+            _ammoList.MultiColumn = true;
+            foreach (AmmoEntry e in AmmoCatalogue.All()) _ammoList.Items.Add(e);
+            _ammoList.ItemCheck += delegate { BeginInvoke(new Action(UpdateAmmoPreview)); };
+            page.Controls.Add(_ammoList);
+
+            UpdateAmmoPreview();
+            return page;
+        }
+
+        private CheckBox AddPageCheck(TabPage page, string text, int yy)
+        {
+            var cb = new CheckBox();
+            cb.Text = text;
+            cb.Location = new Point(14, yy);
+            cb.AutoSize = true;
+            page.Controls.Add(cb);
+            return cb;
+        }
+
+        /// <summary>Shows the exact INFAmmoWeapon line the ticks will produce.</summary>
+        private void UpdateAmmoPreview()
+        {
+            string line = SelectedAmmoTokens();
+            if (line.Length == 0)
+            {
+                _ammoPreview.Text = _cbInfAmmoAll.Checked
+                    ? "INFAmmoWeapon=          (empty - the box above already covers every weapon)"
+                    : "INFAmmoWeapon=          (nothing ticked)";
+            }
+            else
+            {
+                _ammoPreview.Text = "INFAmmoWeapon=" + line;
+            }
+        }
+
+        private string SelectedAmmoTokens()
+        {
+            var tokens = new List<string>();
+            foreach (object o in _ammoList.CheckedItems)
+            {
+                var e = o as AmmoEntry;
+                if (e != null) tokens.Add(e.Token);
+            }
+            return string.Join(",", tokens.ToArray());
+        }
+
+        private void BuildGridColumns()
+        {
+            var where = new DataGridViewTextBoxColumn();
+            where.HeaderText = "Where";
+            where.ReadOnly = true;
+            where.Width = 70;
+            where.SortMode = DataGridViewColumnSortMode.NotSortable;
+            where.DefaultCellStyle.BackColor = SystemColors.Control;
+            where.DefaultCellStyle.ForeColor = Color.DimGray;
+            _grid.Columns.Add(where);
+
+            var surface = new DataGridViewTextBoxColumn();
+            surface.HeaderText = "Surface";
+            surface.ReadOnly = true;
+            surface.Width = 130;
+            surface.SortMode = DataGridViewColumnSortMode.NotSortable;
+            surface.DefaultCellStyle.BackColor = SystemColors.Control;
+            _grid.Columns.Add(surface);
+
+            for (int i = 0; i < Terrain.StanceNames.Length; i++)
+            {
+                var col = new DataGridViewTextBoxColumn();
+                col.HeaderText = Terrain.StanceNames[i];
+                // The last header is the longest, so give it the room rather than truncating it.
+                col.Width = i == Terrain.StanceNames.Length - 1 ? 88 : 65;
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
+                col.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+                _grid.Columns.Add(col);
+            }
+        }
+
+        private void FillGridRows()
+        {
+            _grid.Rows.Clear();
+            foreach (string s in Terrain.AllSurfaces())
+            {
+                int i = _grid.Rows.Add();
+                var row = _grid.Rows[i];
+                row.Tag = s;
+                row.Cells[0].Value = Terrain.GroupOf(s);
+                row.Cells[1].Value = Terrain.FriendlyName(s);
+                for (int c = 0; c < Terrain.Stances; c++) row.Cells[2 + c].Value = "0";
+            }
+        }
+
+        private void ApplyTemplate()
+        {
+            var t = _templateCombo.SelectedItem as GridTemplate;
+            if (t == null) return;
+            var g = new TerrainGrid();
+            t.Apply(g);
+            WriteGridToUi(g);
+            UpdatePreview();
+        }
+
+        private void WriteGridToUi(TerrainGrid g)
+        {
+            foreach (DataGridViewRow row in _grid.Rows)
+            {
+                string s = row.Tag as string;
+                if (s == null) continue;
+                int[] v = g.Row(s);
+                for (int c = 0; c < Terrain.Stances; c++) row.Cells[2 + c].Value = v[c].ToString();
+            }
+        }
+
+        /// <summary>Reads the grid back, reporting the first cell that is not a usable number.</summary>
+        private bool TryReadGrid(out TerrainGrid grid, out string error)
+        {
+            grid = new TerrainGrid();
+            error = null;
+            foreach (DataGridViewRow row in _grid.Rows)
+            {
+                string s = row.Tag as string;
+                if (s == null) continue;
+                int[] target = grid.Row(s);
+                for (int c = 0; c < Terrain.Stances; c++)
+                {
+                    object raw = row.Cells[2 + c].Value;
+                    string text = raw == null ? "" : raw.ToString().Trim();
+                    if (text.Length == 0) { target[c] = 0; continue; }
+
+                    int v;
+                    if (!int.TryParse(text, out v))
+                    {
+                        error = Terrain.FriendlyName(s) + " / " + Terrain.StanceNames[c] +
+                                " is \"" + text + "\", which is not a whole number.";
+                        return false;
+                    }
+                    if (!TerrainGrid.InRange(v))
+                    {
+                        error = Terrain.FriendlyName(s) + " / " + Terrain.StanceNames[c] +
+                                " is " + v + ". Values are stored as a single signed byte, so they must be " +
+                                "between -128 and 127. Stay within -100 to 100 for sensible results.";
+                        return false;
+                    }
+                    target[c] = v;
+                }
+            }
+            return true;
+        }
+
+        // ---- save / load -------------------------------------------------------------
+
+        private ProjectState CurrentState()
+        {
+            var s = new ProjectState();
+            s.Slot = SelectedSlot();
+            s.Name = _displayBox.Text.Trim();
+            s.PlainDesc = _plainDesc.Text.Trim();
+            s.AbilityDescOrange = _abilityDesc.Text.Trim();
+            s.WarningDesc = _warningDesc.Text.Trim();
+            s.SpecialDesc = _specialDesc.Text.Trim();
+
+            int baseCamo;
+            int.TryParse(_baseBox.Text.Trim(), out baseCamo);
+            s.BaseCamo = baseCamo;
+
+            TerrainGrid grid; string err;
+            if (TryReadGrid(out grid, out err)) s.Grid = grid;
+
+            s.Abilities.InfAmmoAll = _cbInfAmmoAll.Checked;
+            s.Abilities.SteadyAim = _cbSteadyAim.Checked;
+            s.Abilities.InfSuppressor = _cbInfSuppressor.Checked;
+            s.Abilities.SilentSteps = _cbSilentSteps.Checked;
+            s.Abilities.InfAmmoWeapons = SelectedAmmoTokens();
+            return s;
+        }
+
+        private void ApplyState(ProjectState s)
+        {
+            int idx = Array.IndexOf(Pipeline.ValidSlots, s.Slot);
+            if (idx >= 0) _slotCombo.SelectedIndex = idx;
+
+            _displayBox.Text = s.Name;
+            _plainDesc.Text = s.PlainDesc;
+            _abilityDesc.Text = s.AbilityDescOrange;
+            _warningDesc.Text = s.WarningDesc;
+            _specialDesc.Text = s.SpecialDesc;
+            _baseBox.Text = s.BaseCamo.ToString();
+            WriteGridToUi(s.Grid);
+
+            _cbInfAmmoAll.Checked = s.Abilities.InfAmmoAll;
+            _cbSteadyAim.Checked = s.Abilities.SteadyAim;
+            _cbInfSuppressor.Checked = s.Abilities.InfSuppressor;
+            _cbSilentSteps.Checked = s.Abilities.SilentSteps;
+
+            // Match saved names against the catalogue the way ACF would, so a hand-edited save with
+            // "ak 47" still ticks the AK-47 box.
+            var wanted = new List<string>();
+            foreach (string t in AmmoCatalogue.Split(s.Abilities.InfAmmoWeapons))
+                wanted.Add(AmmoCatalogue.Normalise(t));
+            for (int i = 0; i < _ammoList.Items.Count; i++)
+            {
+                var e = _ammoList.Items[i] as AmmoEntry;
+                bool on = e != null && wanted.Contains(AmmoCatalogue.Normalise(e.Token));
+                _ammoList.SetItemChecked(i, on);
+            }
+
+            UpdatePreview();
+            UpdateSlotWarnings();
+            UpdateAmmoPreview();
+        }
+
+        private void OnSaveProject(object sender, EventArgs e)
+        {
+            try
+            {
+                Directory.CreateDirectory(SavesFolder);
+                using (var d = new SaveFileDialog())
+                {
+                    d.Title = "Save slot settings";
+                    d.Filter = "RRACF save (*.rracf)|*.rracf|All files (*.*)|*.*";
+                    d.InitialDirectory = SavesFolder;
+                    string name = Pipeline.SanitiseName(_displayBox.Text);
+                    d.FileName = (name.Length > 0 ? name : "slot") + SelectedSlot() + ".rracf";
+                    if (d.ShowDialog(this) != DialogResult.OK) return;
+                    CurrentState().Save(d.FileName);
+                    _lastSavePath = d.FileName;
+                    Log("Saved slot settings to " + d.FileName);
+                }
+            }
+            catch (Exception ex) { ShowError("Could not save.\r\n\r\n" + ex.Message); }
+        }
+
+        private void OnLoadProject(object sender, EventArgs e)
+        {
+            try
+            {
+                Directory.CreateDirectory(SavesFolder);
+                using (var d = new OpenFileDialog())
+                {
+                    d.Title = "Load slot settings";
+                    d.Filter = "RRACF save (*.rracf)|*.rracf|All files (*.*)|*.*";
+                    d.InitialDirectory = Directory.Exists(SavesFolder) ? SavesFolder : _appFolder;
+                    if (d.ShowDialog(this) != DialogResult.OK) return;
+                    ApplyState(ProjectState.Load(d.FileName));
+                    _lastSavePath = d.FileName;
+                    Log("Loaded slot settings from " + d.FileName);
+                }
+            }
+            catch (Exception ex) { ShowError("Could not load that file.\r\n\r\n" + ex.Message); }
+        }
+
         private void ShowCamoPlaceholder(string text)
         {
             _camoPanel.Controls.Clear();
@@ -334,6 +812,38 @@ namespace Rracf
                 if (rb != null && rb.Checked) return rb.Tag as CamoChoice;
             }
             return null;
+        }
+
+        /// <summary>
+        /// Slot 5 has two traps worth showing before the build, not after: a 15-character name limit
+        /// that discards a longer name outright, and concealment values the game ignores.
+        /// </summary>
+        private void UpdateSlotWarnings()
+        {
+            if (_nameWarnLabel == null || _slot65CamoNote == null) return;
+            int slot = SelectedSlot();
+            string name = _displayBox == null ? "" : _displayBox.Text.Trim();
+
+            if (Pipeline.HasNameLimit(slot))
+            {
+                int over = name.Length - Pipeline.Slot65NameLimit;
+                _nameWarnLabel.Text = over > 0
+                    ? "Slot 5 name limit: " + name.Length + "/" + Pipeline.Slot65NameLimit +
+                      " characters. A longer name is IGNORED, and the row falls back to \"ACF Mod 5\"."
+                    : "Slot 5 caps the in-game name at " + Pipeline.Slot65NameLimit + " characters (" +
+                      name.Length + " used).";
+                _nameWarnLabel.ForeColor = over > 0 ? Color.Firebrick : Color.DimGray;
+                _nameWarnLabel.Visible = true;
+
+                _slot65CamoNote.Text = "Slot 5 IGNORES concealment - ACF reads these correctly and the game " +
+                                       "overrides them with Tiger Stripe. Use slots 1-4 if concealment matters.";
+                _slot65CamoNote.Visible = true;
+            }
+            else
+            {
+                _nameWarnLabel.Visible = false;
+                _slot65CamoNote.Visible = false;
+            }
         }
 
         private int SelectedSlot()
@@ -533,8 +1043,52 @@ namespace Rracf
                 return;
             }
             options.BaseCamoId = baseCamo;
+
+            TerrainGrid grid;
+            string gridError;
+            if (!TryReadGrid(out grid, out gridError))
+            {
+                ShowError(gridError);
+                return;
+            }
+            // ACF adds the two together, so a slot with both set conceals better than either number
+            // suggests. Worth a word rather than a silent surprise in game.
+            if (baseCamo != 0 && !grid.IsAllZero)
+            {
+                if (!Confirm("Both are set",
+                        "Base camo is " + baseCamo + " and the per-terrain grid has values in it.\r\n\r\n" +
+                        "ACF ADDS them together, so a grass value of 35 with Base camo " + baseCamo +
+                        " gives " + (35 + baseCamo) + " in grass, not 35.\r\n\r\n" +
+                        "Normally you want one or the other: Base camo on its own for something simple, " +
+                        "or Base camo 0 and the grid filled in for a camo that behaves like a real one.\r\n\r\n" +
+                        "Build it anyway?"))
+                    return;
+            }
+            options.Grid = grid;
             options.DisplayName = _displayBox.Text.Trim();
-            options.Description = _descBox.Text.Trim();
+            options.PlainDesc = _plainDesc.Text.Trim();
+            options.AbilityDescOrange = _abilityDesc.Text.Trim();
+            options.WarningDesc = _warningDesc.Text.Trim();
+            options.SpecialDesc = _specialDesc.Text.Trim();
+            options.Abilities = new SlotAbilities();
+            options.Abilities.InfAmmoAll = _cbInfAmmoAll.Checked;
+            options.Abilities.SteadyAim = _cbSteadyAim.Checked;
+            options.Abilities.InfSuppressor = _cbInfSuppressor.Checked;
+            options.Abilities.SilentSteps = _cbSilentSteps.Checked;
+            options.Abilities.InfAmmoWeapons = SelectedAmmoTokens();
+
+            // Slot 5 discards a name longer than 15 characters rather than truncating it, so the row
+            // would silently read "ACF Mod 5" in game.
+            if (Pipeline.HasNameLimit(options.Slot) &&
+                options.DisplayName.Length > Pipeline.Slot65NameLimit)
+            {
+                if (!Confirm("Name too long for slot 5",
+                        "\"" + options.DisplayName + "\" is " + options.DisplayName.Length +
+                        " characters. Slot 5 holds " + Pipeline.Slot65NameLimit + ".\r\n\r\n" +
+                        "ACF will IGNORE the name rather than shorten it, and the row will read " +
+                        "\"ACF Mod 5\" in game.\r\n\r\nBuild it anyway?"))
+                    return;
+            }
             SaveSettings();
 
             RunInBackground(delegate
