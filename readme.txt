@@ -198,9 +198,10 @@ The realistic way - the Camo values grid
     With Base camo left at 0, the numbers you type ARE the percentages the game
     shows.
 
-    Use the drop-down above the grid for a starting point. "Tiger Stripe" is the
-    game's real values, so you can see the shape of a proper camo. The others are
-    suggestions to build on, not values taken from the game.
+    Use the drop-down above the grid for a starting point. Every template in it
+    is the game's own vanilla values, read straight out of the running game -
+    Tiger Stripe, Squares, Sneaking Suit and Tuxedo. Pick whichever is closest to
+    your outfit and adjust from there.
 
     A good camo is BAD somewhere. That is what makes choosing one interesting.
 
