@@ -9,21 +9,33 @@ RRACF.exe
 # it would silently drop them.
 
 # Created at runtime, beside the exe or under Resources/
-Input/
 Output/
 rracf-settings.txt
 rracf-camomap.txt
 
-# Local test material - other people's mods, not ours to redistribute.
-# Mods being tested belong in here, never at the repo root.
+# Downloaded mods - other people's work, never ours to redistribute.
+# Test mods belong in Downloads/ and mods being converted in Input/, but the
+# rules below mean a mod dropped ANYWHERE in the repo still cannot be
+# committed by accident. A folder name is not proof of its contents, so the
+# mod file extensions are ignored outright - nothing tracked is one of them.
 Downloads/
+Input/
+*.pak
+*.ucas
+*.utoc
+
+# Nexus download folders: Name-<modid>-<ver>-<ver>-<timestamp>
+*-[0-9]*-[0-9]*-[0-9]*-[0-9]*/
 
 # Scratch folders
 _*/
 
-# Packaged release zips - attached to the GitHub release, not committed
+# Packaged release zips - attached to the GitHub release, not committed.
+# Archives are also how mods arrive, so this covers both.
 Release/
 *.zip
+*.7z
+*.rar
 
 # Working notes, including the Nexus page BBCode
 Claude Note*.txt
@@ -31,10 +43,9 @@ Claude Note*.txt
 # Nexus page artwork - kept locally, not tracked
 Textures Pictures etc/
 
-# User data and other people's mods - never tracked
+# User data - saved slot settings are the user's, not the project's
 Resources/Saves/
 *.rracf
-Zero's Jacket Replacer*/
 
 # Editor and toolchain droppings
 .vs/
