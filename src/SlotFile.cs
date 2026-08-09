@@ -127,7 +127,7 @@ namespace Rracf
             sb.AppendLine(";     no more. A longer Name= is ignored rather than cut short, and the row falls");
             sb.AppendLine(";     back to \"ACF Mod 5\". Slots 1 to 4 have no such limit.");
             sb.AppendLine(";");
-            sb.AppendLine(";  EVERYTHING ELSE WORKS exactly as on the other slots - description, colours,");
+            sb.AppendLine(";  EVERYTHING ELSE WORKS exactly as on the other slots - description, colors,");
             sb.AppendLine(";  thumbnail, and every ability below.");
             sb.AppendLine(";");
         }

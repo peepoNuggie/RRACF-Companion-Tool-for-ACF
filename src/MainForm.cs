@@ -367,13 +367,13 @@ namespace Rracf
             _tabs.TabPages.Add(BuildAbilitiesTab());
         }
 
-        private static Label PageLabel(TabPage page, string text, int x, int yy, Color colour)
+        private static Label PageLabel(TabPage page, string text, int x, int yy, Color color)
         {
             var l = new Label();
             l.Text = text;
             l.Location = new Point(x, yy + 3);
             l.AutoSize = true;
-            l.ForeColor = colour;
+            l.ForeColor = color;
             page.Controls.Add(l);
             return l;
         }
@@ -388,7 +388,7 @@ namespace Rracf
                 12, yy, Color.DimGray);
             yy += 26;
 
-            _plainDesc = AddPageField(page, "Plain", yy, Color.Black, "PlainDesc");
+            _plainDesc = AddPageField(page, "Plain", yy, Color.Gray, "PlainDesc");
             yy += RowH;
             _abilityDesc = AddPageField(page, "Ability", yy, Color.DarkOrange, "AbilityDescOrange");
             yy += RowH;
@@ -397,7 +397,7 @@ namespace Rracf
             _specialDesc = AddPageField(page, "Special", yy, Color.Goldenrod, "SpecialDesc");
             yy += RowH + 10;
 
-            PageLabel(page, "The colours above are how each line appears in game. ACF joins whatever is " +
+            PageLabel(page, "The colors above are how each line appears in game. ACF joins whatever is " +
                             "present, in this order.", 12, yy, Color.DimGray);
             yy += 22;
             PageLabel(page, "Description is cosmetic - writing \"Never runs out of ammo\" here does not grant " +
@@ -405,14 +405,14 @@ namespace Rracf
             return page;
         }
 
-        /// <summary>A description row: coloured label showing the in-game colour, then the field.</summary>
-        private TextBox AddPageField(TabPage page, string label, int yy, Color colour, string key)
+        /// <summary>A description row: colored label showing the in-game color, then the field.</summary>
+        private TextBox AddPageField(TabPage page, string label, int yy, Color color, string key)
         {
-            var l = PageLabel(page, label, 12, yy, colour);
+            var l = PageLabel(page, label, 12, yy, color);
             l.Font = new Font(Font, FontStyle.Bold);
 
             var swatch = new Panel();
-            swatch.BackColor = colour;
+            swatch.BackColor = color;
             swatch.Location = new Point(80, yy + 4);
             swatch.Size = new Size(14, 14);
             swatch.BorderStyle = BorderStyle.FixedSingle;
@@ -517,14 +517,19 @@ namespace Rracf
             page.Controls.Add(_ammoPreview);
             yy += 22;
 
+            // Single column with a vertical scrollbar, so the mouse wheel works. Multi-column
+            // CheckedListBox scrolls sideways and the wheel does nothing.
             _ammoList = new CheckedListBox();
             _ammoList.Location = new Point(12, yy);
             _ammoList.Size = new Size(940, TabsHeight - yy - 34);
             _ammoList.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
             _ammoList.CheckOnClick = true;
             _ammoList.IntegralHeight = false;
-            _ammoList.ColumnWidth = 300;
-            _ammoList.MultiColumn = true;
+            _ammoList.MultiColumn = false;
+            _ammoList.BorderStyle = BorderStyle.FixedSingle;
+            _ammoList.DrawMode = DrawMode.OwnerDrawFixed;
+            _ammoList.ItemHeight = 20;
+            _ammoList.DrawItem += AmmoListDrawItem;
             foreach (AmmoEntry e in AmmoCatalogue.All()) _ammoList.Items.Add(e);
             _ammoList.ItemCheck += delegate { BeginInvoke(new Action(UpdateAmmoPreview)); };
             page.Controls.Add(_ammoList);
@@ -541,6 +546,41 @@ namespace Rracf
             cb.AutoSize = true;
             page.Controls.Add(cb);
             return cb;
+        }
+
+        /// <summary>
+        /// Draws the picker so a category reads as a heading and its weapons sit indented under it.
+        /// The default list renders every row identically, which made 30 entries hard to scan.
+        /// </summary>
+        private void AmmoListDrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+            var entry = _ammoList.Items[e.Index] as AmmoEntry;
+            if (entry == null) return;
+
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color back = selected ? SystemColors.Highlight
+                       : entry.IsCategory ? Color.FromArgb(238, 240, 245) : SystemColors.Window;
+            using (var brush = new SolidBrush(back)) e.Graphics.FillRectangle(brush, e.Bounds);
+
+            int boxLeft = entry.IsCategory ? 6 : 26;
+            var glyph = new Rectangle(boxLeft, e.Bounds.Top + (e.Bounds.Height - 14) / 2, 14, 14);
+            System.Windows.Forms.VisualStyles.CheckBoxState state =
+                _ammoList.GetItemChecked(e.Index)
+                    ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal
+                    : System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedNormal;
+            CheckBoxRenderer.DrawCheckBox(e.Graphics, glyph.Location, state);
+
+            using (var font = new Font(Font, entry.IsCategory ? FontStyle.Bold : FontStyle.Regular))
+            {
+                Color fore = selected ? SystemColors.HighlightText
+                           : entry.IsCategory ? Color.FromArgb(30, 40, 70) : SystemColors.WindowText;
+                var text = new Rectangle(boxLeft + 20, e.Bounds.Top, e.Bounds.Width - boxLeft - 24, e.Bounds.Height);
+                TextRenderer.DrawText(e.Graphics, entry.Display, font, text, fore,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+            }
+
+            if (selected) e.DrawFocusRectangle();
         }
 
         /// <summary>Shows the exact INFAmmoWeapon line the ticks will produce.</summary>

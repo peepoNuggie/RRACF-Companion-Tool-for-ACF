@@ -18,14 +18,24 @@ namespace Rracf
         public string InfAmmoWeapons = "";
     }
 
-    /// <summary>One tickable entry in the infinite-ammo picker.</summary>
+    /// <summary>
+    /// One tickable entry in the infinite-ammo picker. Name and Note are kept apart from Token so the
+    /// list can draw categories and weapons differently without the display text ever reaching the
+    /// generated file.
+    /// </summary>
     internal class AmmoEntry
     {
-        public string Label;      // what the user sees
+        public string Name;       // "Handguns", "MK22"
+        public string Note;       // optional aside, e.g. "frag only"
         public string Token;      // exactly what gets written to INFAmmoWeapon
         public bool IsCategory;
 
-        public override string ToString() { return Label; }
+        public string Display
+        {
+            get { return string.IsNullOrEmpty(Note) ? Name : Name + "   (" + Note + ")"; }
+        }
+
+        public override string ToString() { return Display; }
     }
 
     /// <summary>
@@ -91,7 +101,8 @@ namespace Rracf
             var e = new AmmoEntry();
             e.Token = name;
             e.IsCategory = true;
-            e.Label = name + (note == null ? "" : "   (" + note + ")");
+            e.Name = name;
+            e.Note = note;
             list.Add(e);
         }
 
@@ -102,7 +113,8 @@ namespace Rracf
             var e = new AmmoEntry();
             e.Token = name;
             e.IsCategory = false;
-            e.Label = "        " + name + (note == null ? "" : "   (" + note + ")");
+            e.Name = name;
+            e.Note = note;
             list.Add(e);
         }
 

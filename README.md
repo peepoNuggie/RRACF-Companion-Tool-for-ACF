@@ -60,7 +60,7 @@ RRACF writes the whole file in ACF's own format, comments included, so it can be
 afterwards. Beyond the name it covers:
 
 - **Four description lines** — `PlainDesc`, `AbilityDescOrange`, `WarningDesc`, `SpecialDesc`, each
-  a different colour in game. A blank one is omitted rather than written empty, and the legacy
+  a different color in game. A blank one is omitted rather than written empty, and the legacy
   single `Description` key is never written.
 - **Abilities** — silent steps, steady aim, infinite suppressor, infinite ammo, and infinite ammo
   restricted to chosen weapons or whole categories.

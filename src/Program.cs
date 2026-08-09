@@ -133,7 +133,7 @@ namespace Rracf
             o.BaseCamoId = opts.ContainsKey("base") ? int.Parse(opts["base"]) : 0;
             o.ModName = Value(opts, "name", Pipeline.SuggestName(analysis.ChosenUtoc));
             o.DisplayName = Value(opts, "display", "");
-            // ACF 2.0 replaced the single Description with four coloured lines. --desc maps to the
+            // ACF 2.0 replaced the single Description with four colored lines. --desc maps to the
             // plain one; the legacy key is deliberately never written.
             o.PlainDesc = Value(opts, "desc", "");
             o.AbilityDescOrange = Value(opts, "ability-desc", "");

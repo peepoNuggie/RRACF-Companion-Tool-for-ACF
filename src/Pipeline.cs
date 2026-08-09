@@ -81,7 +81,7 @@ namespace Rracf
         public int BaseCamoId;
         /// <summary>Per-terrain values. All zero unless the author filled the grid in.</summary>
         public TerrainGrid Grid = new TerrainGrid();
-        /// <summary>The four coloured description lines, and the ability flags.</summary>
+        /// <summary>The four colored description lines, and the ability flags.</summary>
         public string PlainDesc = "";
         public string AbilityDescOrange = "";
         public string WarningDesc = "";

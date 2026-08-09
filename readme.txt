@@ -59,7 +59,7 @@ HOW TO USE IT
 
 6. Fill in the three tabs if you want to. All of it is optional.
 
-   Description   up to four lines, each a different colour in game
+   Description   up to four lines, each a different color in game
    Camouflage    how well the outfit hides you
    Abilities     silent steps, infinite ammo, and so on
 
