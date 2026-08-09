@@ -70,14 +70,16 @@ afterwards. Beyond the name it covers:
 - **Four description lines** — `PlainDesc`, `AbilityDescOrange`, `WarningDesc`, `SpecialDesc`, each
   a different color in game. A blank one is omitted rather than written empty, and the legacy
   single `Description` key is never written.
-- **Abilities** — silent steps, steady aim, infinite suppressor, infinite ammo, and infinite ammo
-  restricted to chosen weapons or whole categories.
+- **All five abilities** — silent steps, steady aim, infinite suppressor, infinite ammo on every
+  weapon (`INFAmmoFlag`), and infinite ammo restricted to chosen weapons or whole categories
+  (`INFAmmoWeapon`). The last two are separate keys, so either one alone turns it on.
 - **Concealment** — `BaseCamo`, plus the 25-surface × 5-stance grid the game's own camos use.
   They are alternatives: ACF **adds** them, so a grass value of 35 with `BaseCamo=30` gives 65.
   RRACF warns before building if both are set.
 
 The camo-values drop-down offers the game's real grids, read out of the running game with ACF's
-`camotable` command: **Tiger Stripe** (ID 1), **Squares** (ID 7) and **Sneaking Suit** (ID 12).
+`camotable` command: **Tiger Stripe** (ID 1), **Squares** (ID 7), **Sneaking Suit** (ID 12) and
+**Tuxedo** (ID 16).
 
 One rule the generator follows strictly: **no trailing comments on value lines.** ACF only ignores
 lines that *start* with `;` or `#`, so `INFAmmoFlag=0  ; set to 1` would read as enabled.
