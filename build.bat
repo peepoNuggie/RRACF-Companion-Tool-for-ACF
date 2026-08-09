@@ -19,6 +19,11 @@ set ICON=
 if exist "Textures Pictures etc\RRACF.ico" set ICON=/win32icon:"Textures Pictures etc\RRACF.ico"
 if exist "src\RRACF.ico" set ICON=/win32icon:"src\RRACF.ico"
 
+rem NOTE: builds are NOT reproducible. The in-box compiler predates /deterministic (it rejects the
+rem flag outright), so every build stamps a fresh module GUID and timestamp and produces a
+rem different exe from identical source. A rebuild is therefore a brand-new unknown file to any
+rem antivirus, which resets whitelisting and makes a previously submitted hash meaningless.
+rem Practical consequence: scan and submit the exact exe you ship, and do not rebuild afterwards.
 "%CSC%" /nologo /target:winexe /platform:x64 /optimize+ %ICON% ^
     /out:RRACF.exe ^
     /reference:System.dll ^
