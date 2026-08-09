@@ -25,3 +25,8 @@ Claude Note*.txt
 # Nexus page artwork - kept locally, not tracked
 Textures Pictures etc/
 
+
+# User data and other people's mods - never tracked
+Resources/Saves/
+Zero's Jacket Replacer*/
+*.rracf

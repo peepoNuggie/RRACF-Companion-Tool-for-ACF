@@ -2,13 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
 namespace Rracf
 {
-    internal class MainForm : Form
+    internal class MainForm : Form, IMessageFilter
     {
+        // WinForms delivers the mouse wheel to whichever control has FOCUS, not the one under the
+        // pointer. So with the cursor over the weapon list but the caret in a text box, the list
+        // would not scroll at all. This forwards the wheel to whatever is actually under the mouse,
+        // which is what everyone expects, and fixes the camo grid and the log at the same time.
+        private const int WmMouseWheel = 0x020A;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr WindowFromPoint(Point point);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        public bool PreFilterMessage(ref Message m)
+        {
+            if (m.Msg != WmMouseWheel) return false;
+            IntPtr under = WindowFromPoint(Cursor.Position);
+            if (under == IntPtr.Zero || under == m.HWnd) return false;
+            if (Control.FromHandle(under) == null) return false;   // not one of ours - leave it alone
+            SendMessage(under, m.Msg, m.WParam, m.LParam);
+            return true;
+        }
+
         private TextBox _modBox, _paksBox, _outBox, _displayBox, _logBox, _baseBox;
         private TextBox _plainDesc, _abilityDesc, _warningDesc, _specialDesc;
         private ComboBox _slotCombo;
@@ -16,7 +39,7 @@ namespace Rracf
         private Label _baseHint, _gridHint, _nameWarnLabel, _slot65CamoNote;
         private CheckBox _openWhenDone;
         private CheckBox _cbInfAmmoAll, _cbSteadyAim, _cbInfSuppressor, _cbSilentSteps;
-        private CheckedListBox _ammoList;
+        private readonly List<CheckBox> _ammoChecks = new List<CheckBox>();
         private Label _ammoPreview;
         private TabControl _tabs;
         private DataGridView _grid;
@@ -24,6 +47,7 @@ namespace Rracf
         private Button _analyseButton, _buildButton, _rebuildMapButton;
         private Label _previewLabel, _statusLabel;
         private string _lastSavePath = "";
+        private bool _gridSkipping;
 
         private Tools _tools;
         private List<CamoEntry> _camoMap;
@@ -50,6 +74,9 @@ namespace Rracf
 
             BuildLayout();
             LoadSettingsIntoUi();
+
+            Application.AddMessageFilter(this);
+            FormClosed += delegate { Application.RemoveMessageFilter(this); };
         }
 
         private const int LabelX = 12, FieldX = 150, FieldW = 480, BrowseX = 640, RowH = 30;
@@ -347,7 +374,7 @@ namespace Rracf
                 : "-> " + stem + "\\" + stem + "_P.pak / .ucas / .utoc";
         }
 
-        private const int TabsHeight = 330;
+        private const int TabsHeight = 350;
 
         /// <summary>
         /// Description, camouflage and abilities each get a tab. ACF 2.0 added enough fields that a
@@ -363,8 +390,22 @@ namespace Rracf
             Controls.Add(_tabs);
 
             _tabs.TabPages.Add(BuildDescriptionTab());
-            _tabs.TabPages.Add(BuildCamouflageTab());
+            TabPage camo = BuildCamouflageTab();
+            _tabs.TabPages.Add(camo);
             _tabs.TabPages.Add(BuildAbilitiesTab());
+
+            // Now that the pages have their real size, lay the grid out against it.
+            FitToPage(camo, _grid);
+        }
+
+        /// <summary>Stretches a control to fill the rest of its page, leaving a small margin.</summary>
+        private static void FitToPage(TabPage page, Control c)
+        {
+            if (page == null || c == null) return;
+            int w = page.ClientSize.Width - c.Left - 12;
+            int h = page.ClientSize.Height - c.Top - 12;
+            if (w > 100) c.Width = w;
+            if (h > 60) c.Height = h;
         }
 
         private static Label PageLabel(TabPage page, string text, int x, int yy, Color color)
@@ -439,6 +480,13 @@ namespace Rracf
             _baseBox = new TextBox();
             _baseBox.Location = new Point(90, yy);
             _baseBox.Size = new Size(60, 23);
+            _baseBox.MaxLength = 4;
+            _baseBox.KeyPress += NumericKeyPress;
+            _baseBox.Leave += delegate
+            {
+                string t = _baseBox.Text.Trim();
+                if (t.Length == 0 || t == "-") _baseBox.Text = "0";
+            };
             page.Controls.Add(_baseBox);
             _baseHint = PageLabel(page,
                 "Written as BaseCamo= in the .txt - not recommended to use for vanilla-like camo's, " +
@@ -465,9 +513,13 @@ namespace Rracf
             yy += 22;
 
             _grid = new DataGridView();
+            // Sized from the page's REAL height in a Resize handler, not from TabsHeight here. A
+            // TabPage is only about 100px tall until it is added to the TabControl, so anchoring a
+            // control sized against TabsHeight stretched it well past the visible area - its bottom
+            // rows ended up off-page and no amount of scrolling could reach them.
             _grid.Location = new Point(12, yy);
-            _grid.Size = new Size(940, TabsHeight - yy - 34);
-            _grid.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            _grid.Size = new Size(940, 200);
+            page.Resize += delegate { FitToPage(page, _grid); };
             _grid.AllowUserToAddRows = false;
             _grid.AllowUserToDeleteRows = false;
             _grid.AllowUserToResizeRows = false;
@@ -478,6 +530,50 @@ namespace Rracf
             _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             BuildGridColumns();
             FillGridRows();
+
+            // Only digits and a leading minus, four characters max - enough for -128 and 127.
+            _grid.EditingControlShowing += delegate(object s, DataGridViewEditingControlShowingEventArgs e)
+            {
+                var box = e.Control as TextBox;
+                if (box == null) return;
+                box.MaxLength = 4;
+                box.KeyPress -= NumericKeyPress;
+                box.KeyPress += NumericKeyPress;
+            };
+
+            // A cell left empty, or holding just a minus sign, becomes 0 rather than a silent blank.
+            _grid.CellEndEdit += delegate(object s, DataGridViewCellEventArgs e)
+            {
+                if (e.ColumnIndex < 2 || e.RowIndex < 0) return;
+                DataGridViewCell cell = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex];
+                string text = cell.Value == null ? "" : cell.Value.ToString().Trim();
+                if (text.Length == 0 || text == "-") cell.Value = "0";
+            };
+
+            // Tab off the last value column lands on Where, which is read-only and not worth
+            // stopping at. Bounce past both info columns to the first value of that row.
+            //
+            // The move is posted rather than done here: DataGridView is mid-way through changing the
+            // current cell while CellEnter runs, and setting CurrentCell inside it throws
+            // "reentrant call to SetCurrentCellAddressCore". BeginInvoke lets that finish first.
+            _grid.CellEnter += delegate(object s, DataGridViewCellEventArgs e)
+            {
+                if (_gridSkipping || e.ColumnIndex >= 2 || e.RowIndex < 0) return;
+                if (!IsHandleCreated) return;
+
+                int row = e.RowIndex;
+                _gridSkipping = true;
+                BeginInvoke(new Action(delegate
+                {
+                    try
+                    {
+                        if (row < _grid.Rows.Count) _grid.CurrentCell = _grid.Rows[row].Cells[2];
+                    }
+                    catch (Exception) { /* the row can go away if the grid is refilled meanwhile */ }
+                    finally { _gridSkipping = false; }
+                }));
+            };
+
             page.Controls.Add(_grid);
             return page;
         }
@@ -492,15 +588,16 @@ namespace Rracf
                 12, yy, Color.DimGray);
             yy += 26;
 
+            // Two columns rather than four rows: the weapon grid below needs the vertical space.
             _cbSteadyAim = AddPageCheck(page, "Steady aim  -  no shake while aiming (first person)", yy);
+            _cbInfSuppressor = AddPageCheck(page, "Infinite suppressor  -  durability never drops", yy);
+            _cbInfSuppressor.Left = 400;
             yy += 24;
             _cbSilentSteps = AddPageCheck(page, "Silent steps  -  footsteps make no noise", yy);
-            yy += 24;
-            _cbInfSuppressor = AddPageCheck(page, "Infinite suppressor  -  durability never drops", yy);
-            yy += 24;
             _cbInfAmmoAll = AddPageCheck(page, "Infinite ammo  -  EVERY weapon costs no ammo", yy);
+            _cbInfAmmoAll.Left = 400;
             _cbInfAmmoAll.CheckedChanged += delegate { UpdateAmmoPreview(); };
-            yy += 30;
+            yy += 32;
 
             PageLabel(page, "Infinite ammo for specific weapons only  -  independent of the box above; " +
                             "either alone turns it on.", 12, yy, Color.DimGray);
@@ -517,25 +614,52 @@ namespace Rracf
             page.Controls.Add(_ammoPreview);
             yy += 22;
 
-            // Single column with a vertical scrollbar, so the mouse wheel works. Multi-column
-            // CheckedListBox scrolls sideways and the wheel does nothing.
-            _ammoList = new CheckedListBox();
-            _ammoList.Location = new Point(12, yy);
-            _ammoList.Size = new Size(940, TabsHeight - yy - 34);
-            _ammoList.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
-            _ammoList.CheckOnClick = true;
-            _ammoList.IntegralHeight = false;
-            _ammoList.MultiColumn = false;
-            _ammoList.BorderStyle = BorderStyle.FixedSingle;
-            _ammoList.DrawMode = DrawMode.OwnerDrawFixed;
-            _ammoList.ItemHeight = 20;
-            _ammoList.DrawItem += AmmoListDrawItem;
-            foreach (AmmoEntry e in AmmoCatalogue.All()) _ammoList.Items.Add(e);
-            _ammoList.ItemCheck += delegate { BeginInvoke(new Action(UpdateAmmoPreview)); };
-            page.Controls.Add(_ammoList);
+            // Every weapon laid out at once in columns, rather than a scrolling list. There are only
+            // 29 of them, they fit, and nothing needs scrolling to be found.
+            BuildAmmoColumns(page, yy);
 
             UpdateAmmoPreview();
             return page;
+        }
+
+        private const int AmmoRowH = 20, AmmoColW = 232, AmmoMaxRows = 8;
+
+        /// <summary>
+        /// Places a checkbox per category and weapon, filling one column at a time and starting a new
+        /// column when a whole group would not fit - so a category is never split from its weapons.
+        /// </summary>
+        private void BuildAmmoColumns(TabPage page, int top)
+        {
+            int col = 0, row = 0;
+            foreach (AmmoGroup g in AmmoCatalogue.Groups())
+            {
+                if (row > 0 && row + g.Rows > AmmoMaxRows) { col++; row = 0; }
+
+                AddAmmoCheck(page, g.Category, 14 + col * AmmoColW, top + row * AmmoRowH, true);
+                row++;
+                foreach (AmmoEntry w in g.Weapons)
+                {
+                    AddAmmoCheck(page, w, 14 + col * AmmoColW + 14, top + row * AmmoRowH, false);
+                    row++;
+                }
+            }
+        }
+
+        private void AddAmmoCheck(TabPage page, AmmoEntry entry, int x, int y, bool isCategory)
+        {
+            var cb = new CheckBox();
+            cb.Text = entry.Display;
+            cb.Tag = entry;
+            cb.Location = new Point(x, y);
+            cb.AutoSize = true;
+            if (isCategory)
+            {
+                cb.Font = new Font(Font, FontStyle.Bold);
+                cb.ForeColor = Color.FromArgb(30, 40, 70);
+            }
+            cb.CheckedChanged += delegate { UpdateAmmoPreview(); };
+            page.Controls.Add(cb);
+            _ammoChecks.Add(cb);
         }
 
         private CheckBox AddPageCheck(TabPage page, string text, int yy)
@@ -546,41 +670,6 @@ namespace Rracf
             cb.AutoSize = true;
             page.Controls.Add(cb);
             return cb;
-        }
-
-        /// <summary>
-        /// Draws the picker so a category reads as a heading and its weapons sit indented under it.
-        /// The default list renders every row identically, which made 30 entries hard to scan.
-        /// </summary>
-        private void AmmoListDrawItem(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0) return;
-            var entry = _ammoList.Items[e.Index] as AmmoEntry;
-            if (entry == null) return;
-
-            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            Color back = selected ? SystemColors.Highlight
-                       : entry.IsCategory ? Color.FromArgb(238, 240, 245) : SystemColors.Window;
-            using (var brush = new SolidBrush(back)) e.Graphics.FillRectangle(brush, e.Bounds);
-
-            int boxLeft = entry.IsCategory ? 6 : 26;
-            var glyph = new Rectangle(boxLeft, e.Bounds.Top + (e.Bounds.Height - 14) / 2, 14, 14);
-            System.Windows.Forms.VisualStyles.CheckBoxState state =
-                _ammoList.GetItemChecked(e.Index)
-                    ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal
-                    : System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedNormal;
-            CheckBoxRenderer.DrawCheckBox(e.Graphics, glyph.Location, state);
-
-            using (var font = new Font(Font, entry.IsCategory ? FontStyle.Bold : FontStyle.Regular))
-            {
-                Color fore = selected ? SystemColors.HighlightText
-                           : entry.IsCategory ? Color.FromArgb(30, 40, 70) : SystemColors.WindowText;
-                var text = new Rectangle(boxLeft + 20, e.Bounds.Top, e.Bounds.Width - boxLeft - 24, e.Bounds.Height);
-                TextRenderer.DrawText(e.Graphics, entry.Display, font, text, fore,
-                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-            }
-
-            if (selected) e.DrawFocusRectangle();
         }
 
         /// <summary>Shows the exact INFAmmoWeapon line the ticks will produce.</summary>
@@ -602,12 +691,29 @@ namespace Rracf
         private string SelectedAmmoTokens()
         {
             var tokens = new List<string>();
-            foreach (object o in _ammoList.CheckedItems)
+            foreach (CheckBox cb in _ammoChecks)
             {
-                var e = o as AmmoEntry;
-                if (e != null) tokens.Add(e.Token);
+                var e = cb.Tag as AmmoEntry;
+                if (cb.Checked && e != null) tokens.Add(e.Token);
             }
             return string.Join(",", tokens.ToArray());
+        }
+
+        /// <summary>
+        /// Lets through digits, editing keys, and a single minus at the very start. Everything else
+        /// is swallowed, so a camo value cannot end up holding a word.
+        /// </summary>
+        private static void NumericKeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar)) return;
+            if (char.IsDigit(e.KeyChar)) return;
+
+            if (e.KeyChar == '-')
+            {
+                var box = sender as TextBoxBase;
+                if (box != null && box.SelectionStart == 0 && box.Text.IndexOf('-') < 0) return;
+            }
+            e.Handled = true;
         }
 
         private void BuildGridColumns()
@@ -762,11 +868,10 @@ namespace Rracf
             var wanted = new List<string>();
             foreach (string t in AmmoCatalogue.Split(s.Abilities.InfAmmoWeapons))
                 wanted.Add(AmmoCatalogue.Normalise(t));
-            for (int i = 0; i < _ammoList.Items.Count; i++)
+            foreach (CheckBox cb in _ammoChecks)
             {
-                var e = _ammoList.Items[i] as AmmoEntry;
-                bool on = e != null && wanted.Contains(AmmoCatalogue.Normalise(e.Token));
-                _ammoList.SetItemChecked(i, on);
+                var e = cb.Tag as AmmoEntry;
+                cb.Checked = e != null && wanted.Contains(AmmoCatalogue.Normalise(e.Token));
             }
 
             UpdatePreview();

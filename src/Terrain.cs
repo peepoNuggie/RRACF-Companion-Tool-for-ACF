@@ -118,6 +118,8 @@ namespace Rracf
     internal class GridTemplate
     {
         public string Name;
+        /// <summary>The camo this came from, used only to keep the list in ID order. -1 sorts first.</summary>
+        public int CamoId = -1;
         public Action<TerrainGrid> Apply;
 
         public override string ToString() { return Name; }
@@ -203,6 +205,40 @@ namespace Rracf
                     g.Set("CamoRoomBlue", -15, 0, 15, 5, 10);
                 }));
 
+            // The game's enum has GM_CAMOUF_TUXEDO = 16; the dump this came from was labelled 12,
+            // which is GM_CAMOUF_SNEAKING. The values are a black formal suit - strong on black and
+            // indoor black, badly exposed on white and grass - so 16 is the one that fits.
+            list.Add(Make("Tuxedo  CamoID 16",
+                delegate(TerrainGrid g)
+                {
+                    g.Clear();
+                    g.Set("CamoWater", 0, 30, 50, 0, 5);
+                    g.Set("CamoMoss", 0, 30, 50, 40, 45);
+                    g.Set("CamoBlack", 25, 55, 75, 65, 70);
+                    g.Set("CamoGray", -25, 5, 25, 15, 20);
+                    g.Set("CamoSoilBrown", -25, 5, 25, 15, 20);
+                    g.Set("CamoWood", 15, 55, 75, 65, 70);
+                    g.Set("CamoObjBrown", -20, 10, 30, 20, 25);
+                    g.Set("CamoObjRed", -15, 15, 35, 25, 30);
+                    g.Set("CamoObjOliveGreen", -10, 20, 40, 30, 35);
+                    g.Set("CamoGrass", -35, -5, 80, 5, 10);
+                    g.Set("CamoLeaf", -15, 15, 35, 25, 30);
+                    g.Set("CamoSoilBeige", -25, 5, 25, 15, 20);
+                    g.Set("CamoObjBeige", -20, 10, 30, 20, 25);
+                    g.Set("CamoWoodGreen", -20, 10, 30, 20, 25);
+                    g.Set("CamoWhite", -40, -10, 10, 0, 5);
+                    g.Set("CamoRoomGray", 0, 15, 30, 20, 25);
+                    g.Set("CamoRoomWood", 10, 25, 40, 30, 35);
+                    g.Set("CamoRoomBlack", 25, 40, 55, 45, 50);
+                    g.Set("CamoRoomBrown", 0, 15, 30, 20, 25);
+                    g.Set("CamoRoomRed", 5, 20, 35, 25, 30);
+                    g.Set("CamoRoomOrange", -25, -10, 5, -5, 0);
+                    g.Set("CamoRoomOlive", -25, -10, 5, -5, 0);
+                    g.Set("CamoRoomBeige", -30, -15, 0, -10, -5);
+                    g.Set("CamoRoomWhite", -30, -15, 0, -10, -5);
+                    g.Set("CamoRoomBlue", 10, 25, 40, 30, 35);
+                }));
+
             list.Add(Make("Sneaking Suit  CamoID 12",
                 delegate(TerrainGrid g)
                 {
@@ -220,6 +256,9 @@ namespace Rracf
                     foreach (string s in Terrain.Rooms) g.Set(s, 15, 30, 45, 35, 40);
                 }));
 
+            // All Zero first, then ascending camo ID - so adding a template in the wrong place in
+            // the code above cannot put the drop-down out of order.
+            list.Sort(delegate(GridTemplate a, GridTemplate b) { return a.CamoId.CompareTo(b.CamoId); });
             return list;
         }
 
@@ -227,8 +266,16 @@ namespace Rracf
         {
             var t = new GridTemplate();
             t.Name = name;
+            t.CamoId = IdFromName(name);
             t.Apply = apply;
             return t;
+        }
+
+        /// <summary>Reads the trailing "CamoID n" so the sort cannot drift from the label.</summary>
+        private static int IdFromName(string name)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(name, @"CamoID\s*(\d+)");
+            return m.Success ? int.Parse(m.Groups[1].Value) : -1;
         }
     }
 }

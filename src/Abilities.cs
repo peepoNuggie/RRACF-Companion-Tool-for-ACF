@@ -48,8 +48,37 @@ namespace Rracf
     /// EZ Gun and the Patriot are deliberately absent - the game already gives those infinite ammo.
     /// Melee weapons and tools have no ammo to spend.
     /// </summary>
+    /// <summary>A category and the individual weapons that sit under it.</summary>
+    internal class AmmoGroup
+    {
+        public AmmoEntry Category;
+        public List<AmmoEntry> Weapons = new List<AmmoEntry>();
+        public int Rows { get { return 1 + Weapons.Count; } }
+    }
+
     internal static class AmmoCatalogue
     {
+        /// <summary>The same entries as All(), kept in their category groupings for laying out.</summary>
+        public static List<AmmoGroup> Groups()
+        {
+            var groups = new List<AmmoGroup>();
+            AmmoGroup current = null;
+            foreach (AmmoEntry e in All())
+            {
+                if (e.IsCategory)
+                {
+                    current = new AmmoGroup();
+                    current.Category = e;
+                    groups.Add(current);
+                }
+                else if (current != null)
+                {
+                    current.Weapons.Add(e);
+                }
+            }
+            return groups;
+        }
+
         public static List<AmmoEntry> All()
         {
             var list = new List<AmmoEntry>();
@@ -91,7 +120,8 @@ namespace Rracf
             AddWeapon(list, "Claymore");
             AddWeapon(list, "Mousetraps");
 
-            AddCategory(list, "Nonlethal", "MK22, Mosin, Stun, Chaff, Gas Spray, Mousetraps");
+            // Kept short: this sits in the last column and a long aside runs off the edge.
+            AddCategory(list, "Nonlethal", "6 weapons");
 
             return list;
         }

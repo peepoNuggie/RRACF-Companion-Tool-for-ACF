@@ -228,5 +228,21 @@ own licences:
 RRACF on Nexus:  https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/236
 ACF on Nexus:    https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/235
 
-Source code: https://github.com/peepoNuggie/RRACF-Companion-Tool-for-ACF
-Downloads are on Nexus Mods only.
+Source code and downloads:
+    https://github.com/peepoNuggie/RRACF-Companion-Tool-for-ACF
+
+
+A NOTE ON ANTIVIRUS WARNINGS
+--------------------------------------------------------------------------------
+
+A scanner may flag RRACF. It is a small unsigned program that launches two
+other tools, which is a shape antivirus machine-learning models are wary of,
+and the compression library retoc and repak use is a well-known false positive.
+
+The whole source is on GitHub and builds with the compiler that ships with
+Windows, so anyone can check it or build their own copy. RRACF makes no network
+connections, has no installer, writes no registry entries, and touches nothing
+outside its own Output folder.
+
+If you would rather not take the bundled tools on trust, use the unbundled
+download and fetch retoc and repak yourself from their own pages.

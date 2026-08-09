@@ -6,15 +6,23 @@ mod, so the outfit gets its own place in the camo list instead of taking over on
 
 Point it at a mod, give it a name, pick a slot. It works out the rest.
 
-> ### Downloads are on Nexus, not here
+> ### Download
 >
-> **[Download RRACF on Nexus Mods](https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/236)**
+> **[Releases](../../releases)** · **[Nexus Mods](https://www.nexusmods.com/metalgearsoliddeltasnakeeater/mods/236)**
 >
-> RRACF.exe itself is not built here — GitHub's automatic "Source code (zip)" archives are the
-> project, not the tool. Nexus carries the packaged, ready-to-run build.
+> Two packages, same program:
 >
-> The two third-party tools RRACF drives, `retoc` and `repak`, **are** included under `Resources/`,
-> so everything in the download can be inspected here.
+> | | |
+> |---|---|
+> | **Bundled** | Everything included. Unzip and run. |
+> | **Unbundled** | RRACF only — you supply `retoc` and `repak` yourself. ~90 KB. |
+>
+> The unbundled build exists because `retoc` and `repak` ship a compression library that some
+> antivirus scanners flag on reputation. Nothing is wrong with them — they are unmodified official
+> releases — but the smaller package lets you fetch them from source yourself.
+>
+> Take the **Releases** zips, not GitHub's automatic "Source code (zip)" — that is the project, not
+> a runnable tool.
 
 ---
 
