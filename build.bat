@@ -11,7 +11,15 @@ if not exist "%CSC%" (
 
 pushd "%~dp0"
 
-"%CSC%" /nologo /target:winexe /platform:x64 /optimize+ ^
+rem The icon is cosmetic, but a desktop app with none looks unfinished - and some antivirus
+rem heuristics weight a missing icon and missing version info together.
+rem src\RRACF.ico is the tracked copy, so a fresh clone builds an identical exe. The artwork
+rem folder is a fallback and is not in the repository.
+set ICON=
+if exist "Textures Pictures etc\RRACF.ico" set ICON=/win32icon:"Textures Pictures etc\RRACF.ico"
+if exist "src\RRACF.ico" set ICON=/win32icon:"src\RRACF.ico"
+
+"%CSC%" /nologo /target:winexe /platform:x64 /optimize+ %ICON% ^
     /out:RRACF.exe ^
     /reference:System.dll ^
     /reference:System.Drawing.dll ^
