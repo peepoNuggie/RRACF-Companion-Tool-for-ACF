@@ -26,6 +26,19 @@ Point it at a mod, give it a name, pick a slot. It works out the rest.
 
 ---
 
+### Branches
+
+| | |
+|---|---|
+| **`main`** | The released code. Matches the current downloads, tagged `v2.0`. Read this one if you want to know how the shipping tool works. |
+| **`experimental`** | Where development happens. Everything in `main` plus whatever is being built next. Expect it to be ahead, and expect it to break. |
+
+Anything landing in `experimental` reaches `main` when it ships. If you are filing an issue, say
+which branch you were on — a bug in `experimental` may already be known, and a bug in `main` is in
+everyone's download.
+
+---
+
 ## Status
 
 **v2.0** — writes ACF 2.0's config format.
