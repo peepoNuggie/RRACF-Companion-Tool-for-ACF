@@ -8,8 +8,22 @@ namespace Rracf
 {
     internal static class AppInfo
     {
-        /// <summary>The single place the version is written. Title bar, log and --version all read it.</summary>
-        public const string Version = "2.0";
+        /// <summary>
+        /// Read back from the assembly, so AssemblyInfo.cs is the single place the version is set and
+        /// the exe's version resource can never disagree with what the window says.
+        /// </summary>
+        public static readonly string Version = ReadVersion();
+
+        private static string ReadVersion()
+        {
+            try
+            {
+                System.Version v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                if (v != null && (v.Major != 0 || v.Minor != 0)) return v.Major + "." + v.Minor;
+            }
+            catch (Exception) { }
+            return "2.0";
+        }
     }
 
     /// <summary>

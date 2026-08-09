@@ -16,6 +16,7 @@ pushd "%~dp0"
     /reference:System.dll ^
     /reference:System.Drawing.dll ^
     /reference:System.Windows.Forms.dll ^
+    src\AssemblyInfo.cs ^
     src\Program.cs ^
     src\MainForm.cs ^
     src\Pipeline.cs ^

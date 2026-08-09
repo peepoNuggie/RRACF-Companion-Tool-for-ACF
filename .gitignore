@@ -1,4 +1,4 @@
-﻿# Build output - the tool is distributed on Nexus, not from here
+# Build output - the tool is distributed on Nexus, not from here
 RRACF.exe
 *.pdb
 
@@ -19,7 +19,7 @@ _*/
 
 # Packaged release - the download lives on Nexus
 Release/
-Claude Note.txt
+Claude Note*.txt
 
 
 # Nexus page artwork - kept locally, not tracked
