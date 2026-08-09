@@ -184,13 +184,23 @@ namespace Rracf
             if (!File.Exists(RepakPath)) missing.Add("repak.exe");
             if (missing.Count == 0) return;
 
+            // Name the Resources folder when it exists, because that is where the download puts them
+            // and where the unbundled package's placeholder files sit. Pointing at the program root
+            // instead would contradict the layout the user is looking at.
             string where = BaseFolder.Length > 0 ? BaseFolder : ".";
+            string resources = Path.Combine(where, "Resources");
+            string home = Directory.Exists(resources) ? resources : where;
+
             throw new InvalidOperationException(
                 "RRACF could not find " + string.Join(" or ", missing.ToArray()) + ".\r\n\r\n" +
-                "These have to sit next to RRACF.exe:\r\n" +
-                "    " + Path.Combine(where, @"retoc\retoc.exe") + "\r\n" +
-                "    " + Path.Combine(where, @"repak\repak.exe") + "\r\n\r\n" +
-                "Copy the whole retoc and repak folders across, then try again.");
+                "They belong here:\r\n" +
+                "    " + Path.Combine(home, @"retoc\retoc.exe") + "\r\n" +
+                "    " + Path.Combine(home, @"repak\repak.exe") + "\r\n\r\n" +
+                "Copy each tool's whole folder contents across - the .exe and the " +
+                "oo2core_9_win64.dll beside it.\r\n\r\n" +
+                "retoc:  https://github.com/trumank/retoc/releases\r\n" +
+                "repak:  https://github.com/trumank/repak/releases\r\n\r\n" +
+                "Or download the bundled version of RRACF, which already has them.");
         }
 
         public string RunRetoc(string[] args, string workingDir, Action<string> log)
