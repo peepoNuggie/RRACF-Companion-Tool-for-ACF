@@ -1,32 +1,49 @@
-# Build output - the tool is distributed on Nexus, not from here
+# Build output. Built with build.bat; released builds are attached to GitHub
+# releases rather than committed, so the repo never carries a stale binary.
 RRACF.exe
 *.pdb
 
-# Third-party tools (retoc, repak). MIT licensed and bundled in the Nexus
-# download with their LICENSE files; not tracked in this repo.
+# NOTE: retoc and repak ARE tracked, in Resources/retoc and Resources/repak.
+# They are unmodified upstream releases kept under their own LICENSE files so
+# the repo builds into something runnable. Do not add a blanket *.exe rule -
+# it would silently drop them.
 
-# Created at runtime
+# Created at runtime, beside the exe or under Resources/
 Input/
 Output/
 rracf-settings.txt
 rracf-camomap.txt
 
-# Local test material - other people's mods, not ours to redistribute
+# Local test material - other people's mods, not ours to redistribute.
+# Mods being tested belong in here, never at the repo root.
 Downloads/
 
 # Scratch folders
 _*/
 
-# Packaged release - the download lives on Nexus
+# Packaged release zips - attached to the GitHub release, not committed
 Release/
-Claude Note*.txt
+*.zip
 
+# Working notes, including the Nexus page BBCode
+Claude Note*.txt
 
 # Nexus page artwork - kept locally, not tracked
 Textures Pictures etc/
 
-
 # User data and other people's mods - never tracked
 Resources/Saves/
-Zero's Jacket Replacer*/
 *.rracf
+Zero's Jacket Replacer*/
+
+# Editor and toolchain droppings
+.vs/
+.vscode/
+bin/
+obj/
+*.suo
+*.user
+
+# Windows shell junk
+Thumbs.db
+desktop.ini
