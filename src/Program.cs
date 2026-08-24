@@ -108,7 +108,7 @@ namespace Rracf
             if (!opts.ContainsKey("slot"))
             {
                 Console.WriteLine();
-                Console.WriteLine("Add --slot 61|62|63|64 to build. Add --source <id> to override the camo above.");
+                Console.WriteLine("Add --slot 61-65 to build. Add --source <id> to override the camo above.");
                 return 0;
             }
 
@@ -187,11 +187,11 @@ namespace Rracf
             Console.WriteLine();
             Console.WriteLine("  Run with no arguments to open the window.");
             Console.WriteLine();
-            Console.WriteLine("  RRACF.exe [--mod <folder>] [--slot 61|62|63|64] [options]");
+            Console.WriteLine("  RRACF.exe [--mod <folder>] [--slot <61-65>] [options]");
             Console.WriteLine();
             Console.WriteLine("    --mod <path>      folder holding the replacer mod (or a .utoc);");
             Console.WriteLine("                      defaults to the Input folder");
-            Console.WriteLine("    --slot <61-64>    ACF slot to fill; omit to just inspect the mod");
+            Console.WriteLine("    --slot <61-65>    ACF slot to fill; omit to just inspect the mod");
             Console.WriteLine("    --source <id>     override the detected camo used as the template");
             Console.WriteLine("                      (must be the camo the mod actually replaces)");
             Console.WriteLine("    --base <n>        BaseCamo= concealment value, -128..127 (default 0).");
