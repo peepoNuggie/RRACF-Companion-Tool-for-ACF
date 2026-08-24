@@ -30,7 +30,7 @@ Point it at a mod, give it a name, pick a slot. It works out the rest.
 
 | | |
 |---|---|
-| **`main`** | The released code. Matches the current downloads, tagged `v2.0`. Read this one if you want to know how the shipping tool works. |
+| **`main`** | The released code. Matches the current downloads, tagged `v2.0.1`. Read this one if you want to know how the shipping tool works. |
 | **`experimental`** | Where development happens. Everything in `main` plus whatever is being built next. Expect it to be ahead, and expect it to break. |
 
 Anything landing in `experimental` reaches `main` when it ships. If you are filing an issue, say
@@ -41,7 +41,7 @@ everyone's download.
 
 ## Status
 
-**v2.0** — writes ACF 2.0's config format.
+**v2.0.1** — writes ACF 2.0's config format. See the [changelog](CHANGELOG.md).
 
 | | |
 |---|---|

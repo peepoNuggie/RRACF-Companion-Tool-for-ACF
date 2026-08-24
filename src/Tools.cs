@@ -19,10 +19,16 @@ namespace Rracf
             try
             {
                 System.Version v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-                if (v != null && (v.Major != 0 || v.Minor != 0)) return v.Major + "." + v.Minor;
+                if (v != null && (v.Major != 0 || v.Minor != 0))
+                {
+                    // The third number is only shown when there is one, so 2.0.0.0 stays "2.0"
+                    // while a patch release reads "2.0.1" rather than being rounded back to "2.0".
+                    if (v.Build > 0) return v.Major + "." + v.Minor + "." + v.Build;
+                    return v.Major + "." + v.Minor;
+                }
             }
             catch (Exception) { }
-            return "2.0";
+            return "2.0.1";
         }
     }
 
