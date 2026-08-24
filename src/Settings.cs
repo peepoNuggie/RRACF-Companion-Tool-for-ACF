@@ -219,7 +219,11 @@ namespace Rracf
             {
                 try
                 {
-                    if (!d.IsReady || d.DriveType != DriveType.Fixed) continue;
+                    // Removable counts: a game this size often lives on an external drive. Network
+                    // drives do not - they are slow enough to spend the whole budget going nowhere.
+                    // IsReady is what keeps an empty card reader from stalling the window.
+                    if (!d.IsReady) continue;
+                    if (d.DriveType != DriveType.Fixed && d.DriveType != DriveType.Removable) continue;
                     drives.Add(d.RootDirectory.FullName);
                 }
                 catch (Exception) { }
