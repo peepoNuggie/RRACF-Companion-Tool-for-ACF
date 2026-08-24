@@ -177,6 +177,24 @@ The full write-up — including the dead ends and the evidence for each decision
 - A copy of the game, to read the vanilla camo assets from
 - Windows. The tool runs on .NET Framework 4.x, already present on Windows 10 and 11
 
+### Finding the game
+
+RRACF works out where the game is on first run and remembers it, so this normally needs no thought.
+It tries the usual Steam locations, then Steam's own record of its library folders, and only if both
+come up empty does it go looking for the game folder itself on your drives — which covers a copy
+installed somewhere unusual, or not through Steam at all. That last step is bounded and runs once;
+whatever it finds is saved.
+
+If it guesses wrong, or finds nothing, type or browse to the folder yourself. It wants the folder
+holding `global.utoc`:
+
+```
+...\MGSDelta\Content\Paks
+```
+
+**Not** the `mods` folder inside it. `mods` is where a finished mod gets *installed*, and it holds
+none of the game data RRACF has to read.
+
 `retoc` and `repak` are included under `Resources/`, unmodified from their upstream releases.
 
 ---

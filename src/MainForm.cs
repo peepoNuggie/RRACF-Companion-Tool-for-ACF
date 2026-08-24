@@ -298,7 +298,7 @@ namespace Rracf
             // another machine would have us create D:\Mod Hub\RRACF\Input on someone else's drive.
             _modBox.Text = ExistingOr(_settings.Get("input", ""), Path.Combine(_appFolder, "Input"));
             _outBox.Text = ExistingOr(_settings.Get("output", ""), Path.Combine(_appFolder, "Output"));
-            _paksBox.Text = _settings.Get("paks", GameFinder.FindPaksFolder());
+            _paksBox.Text = _settings.Get("paks", "");
 
             _openWhenDone.Checked = _settings.Get("openwhendone", "1") != "0";
 
@@ -315,8 +315,14 @@ namespace Rracf
                 File.Exists(savedRepak) ? savedRepak : _tools.RepakPath);
             _tools.BaseFolder = _appFolder;
 
-            // Same for the game folder: a path from someone else's machine is worse than detecting.
-            if (!Directory.Exists(_paksBox.Text)) _paksBox.Text = GameFinder.FindPaksFolder();
+            // Same for the game folder: a path from someone else's machine is worse than detecting,
+            // and so is one that is not really a Paks folder - Content\Paks\mods is an easy thing to
+            // pick by mistake, and it survives all the way to a retoc call before failing.
+            //
+            // This is the ONLY place detection is called from, deliberately. Working out where the
+            // game is can mean searching the disk on a machine that has no Steam copy, so it must
+            // not run when the saved path is already good.
+            if (!GameFinder.IsPaksFolder(_paksBox.Text)) _paksBox.Text = GameFinder.FindPaksFolder();
 
             Log("RRACF " + AppInfo.Version + " - turns a replacer camo mod into an ACF slot mod.");
             Log("retoc: " + (File.Exists(_tools.RetocPath) ? _tools.RetocPath : "NOT FOUND"));
