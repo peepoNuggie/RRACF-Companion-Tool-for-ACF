@@ -406,6 +406,27 @@ namespace Rracf
             if (!Directory.Exists(o.PaksFolder))
                 throw new InvalidOperationException("Game Paks folder not found: " + o.PaksFolder);
 
+            // That the folder exists proves nothing. Content\Paks\mods exists on every install, and
+            // pointing at it used to get all the way to a retoc call before failing with a message
+            // that blamed the camo ID. Say so here instead, while the cause is still obvious.
+            if (!GameFinder.IsPaksFolder(o.PaksFolder))
+            {
+                string hint = "";
+                try
+                {
+                    DirectoryInfo up = Directory.GetParent(o.PaksFolder);
+                    if (up != null && GameFinder.IsPaksFolder(up.FullName))
+                        hint = "\r\n\r\nIt looks like you have picked the mods folder inside it. " +
+                               "That is where a finished mod gets installed - the game's own files " +
+                               "are in the folder above:\r\n  " + up.FullName;
+                }
+                catch (Exception) { }
+
+                throw new InvalidOperationException(
+                    "This is not the game's Paks folder - there is no global.utoc in it:\r\n  " +
+                    o.PaksFolder + hint);
+            }
+
             List<string> containers = FindContainers(o.ModInput);
 
             string oldName = "Camouf_" + o.SourceCamoId + "_asset";
@@ -446,8 +467,23 @@ namespace Rracf
                 string srcUasset = Path.Combine(assetDir, oldName + ".uasset");
                 string srcUexp = Path.Combine(assetDir, oldName + ".uexp");
                 if (!File.Exists(srcUasset) || !File.Exists(srcUexp))
+                {
+                    // The Paks folder was checked above, so the template is genuinely missing rather
+                    // than being looked for in the wrong place. Which of the two sources it was
+                    // missing from decides what is worth saying.
+                    if (o.TemplateFromMod)
+                        throw new InvalidOperationException(
+                            "Could not read " + oldName + " out of the mod's own files.\r\n\r\n" +
+                            "The mod appeared to carry its own camouflage asset, but it could not be " +
+                            "unpacked. If this is an add-on, the main mod it belongs to has to be in " +
+                            "the Input folder too.");
+
                     throw new InvalidOperationException(
-                        "The game does not contain " + oldName + ". Camo ID " + o.SourceCamoId + " may not exist.");
+                        "The game does not contain " + oldName + ", so camo ID " + o.SourceCamoId +
+                        " cannot be used as a template.\r\n\r\n" +
+                        "Camo IDs 0, 52 and 53 have no asset in the game at all. Otherwise, pick the " +
+                        "camo the mod actually replaces from the list.");
+                }
 
                 // 2. Keep an untouched copy so we can prove the finished chunk ID really moved.
                 string controlStaging = Path.Combine(scratch, "control");
